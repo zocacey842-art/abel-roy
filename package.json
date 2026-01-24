@@ -1,0 +1,30 @@
+{
+  "name": "royal-bingo",
+  "version": "1.0.0",
+  "main": "server.js",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "Royal Bingo - Telegram Bingo Game",
+  "dependencies": {
+    "@upstash/redis": "^1.36.1",
+    "bcryptjs": "^3.0.3",
+    "body-parser": "^2.2.2",
+    "cors": "^2.8.6",
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1",
+    "ioredis": "^5.9.2",
+    "jsonwebtoken": "^9.0.3",
+    "multer": "^2.0.2",
+    "node-telegram-bot-api": "^0.67.0",
+    "pg": "^8.17.2",
+    "ws": "^8.19.0"
+  }
+}
