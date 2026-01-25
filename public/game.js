@@ -1119,6 +1119,18 @@ async function loadTransactions() {
     }
 }
 
+function updateInviteLinks() {
+    const userJson = localStorage.getItem('bingo_user');
+    if (userJson) {
+        const user = JSON.parse(userJson);
+        const inviteInput = document.getElementById('invite-link-input');
+        if (inviteInput) {
+            // Updated to point to the website instead of Telegram bot
+            inviteInput.value = `${window.location.origin}/?ref=${user.id}`;
+        }
+    }
+}
+
 async function loadConfig() {
     try {
         const res = await fetch('/api/config');
@@ -1137,17 +1149,6 @@ async function loadConfig() {
         }
     } catch (e) {
         console.error('Failed to load config', e);
-    }
-}
-
-function updateInviteLinks() {
-    const userJson = localStorage.getItem('bingo_user');
-    if (userJson && window.botUsername) {
-        const user = JSON.parse(userJson);
-        const inviteInput = document.getElementById('invite-link-input');
-        if (inviteInput) {
-            inviteInput.value = `https://t.me/${window.botUsername}?start=${user.id}`;
-        }
     }
 }
 

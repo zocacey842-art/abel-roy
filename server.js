@@ -220,15 +220,18 @@ app.post('/api/request-otp', async (req, res) => {
         const hashedPassword = await require('bcryptjs').hash(password, 10);
         const userCheck = await pool.query('SELECT id FROM users WHERE telegram_id = $1', [telegramId]);
         
+        // Use referrerId from session/body if available
+        const finalReferrerId = referrerId || null;
+
         if (userCheck.rows.length === 0) {
             await pool.query(
                 'INSERT INTO users (username, telegram_id, password, is_registered, referred_by) VALUES ($1, $2, $3, false, $4)',
-                [username, telegramId, hashedPassword, referrerId || null]
+                [username, telegramId, hashedPassword, finalReferrerId]
             );
         } else {
             await pool.query(
                 'UPDATE users SET username = $1, password = $2, referred_by = COALESCE(referred_by, $4) WHERE telegram_id = $3',
-                [username, hashedPassword, telegramId, referrerId || null]
+                [username, hashedPassword, telegramId, finalReferrerId]
             );
         }
 
