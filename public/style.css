@@ -772,7 +772,7 @@ html, body {
 
 .welcome-box {
     background: var(--color-block-dark);
-    padding: 40px 30px;
+    padding: 25px 20px;
     border-radius: 30px;
     box-shadow: var(--shadow-main);
     width: 90%;
@@ -785,16 +785,16 @@ html, body {
 
 .welcome-box h1 {
     color: var(--color-text-light);
-    margin-bottom: 8px;
-    font-size: 2.2em;
+    margin-bottom: 5px;
+    font-size: 1.8em;
     font-weight: 800;
 }
 
 .welcome-box h2 {
-    font-size: 1.1em;
+    font-size: 1em;
     color: rgba(255, 255, 255, 0.7);
     margin-top: 0;
-    margin-bottom: 35px;
+    margin-bottom: 20px;
     font-weight: 500;
 }
 
@@ -881,15 +881,15 @@ html, body {
 
 .play-btn {
     width: 100%;
-    padding: 18px;
-    font-size: 1.2em;
+    padding: 15px;
+    font-size: 1.1em;
     font-weight: 800;
     color: #fff;
     background: linear-gradient(135deg, var(--color-purple), #764ba2);
     border: none;
-    border-radius: 20px;
+    border-radius: 18px;
     cursor: pointer;
-    margin-top: 25px;
+    margin-top: 15px;
     box-shadow: var(--glow-purple);
     transition: all 0.3s ease;
     text-transform: uppercase;
