@@ -1189,10 +1189,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 showScreen('profile-screen');
                 loadProfile();
             } else if (target === 'game') {
-                if (gameStatus === 'playing' && selectedCardId) {
-                    showScreen('game-screen');
-                } else {
-                    showSelectionScreen();
+                showSelectionScreen();
+                if (!ws || ws.readyState !== WebSocket.OPEN) {
+                    initWebSocket();
                 }
             }
             
