@@ -210,6 +210,21 @@
 
         <section class="admin-card">
             <div class="card-header">
+                <h3>🔍 ተጠቃሚ መፈለጊያ (Search & Update Balance)</h3>
+            </div>
+            <div style="padding: 1.5rem;">
+                <div style="display: flex; gap: 10px; margin-bottom: 1rem;">
+                    <input type="number" id="search-user-id" placeholder="የተጠቃሚ መለያ (User ID) ያስገቡ..." style="flex: 1; padding: 0.75rem; background: rgba(0,0,0,0.2); border: 1px solid #334155; color: white; border-radius: 0.5rem;">
+                    <button class="btn-action btn-primary" onclick="searchUser()">🔍 ፈልግ</button>
+                </div>
+                <div id="search-result-area" style="display: none; padding: 1rem; background: rgba(255,255,255,0.02); border-radius: 0.5rem; border: 1px solid #334155;">
+                    <!-- Result will appear here -->
+                </div>
+            </div>
+        </section>
+
+        <section class="admin-card">
+            <div class="card-header">
                 <h3>📢 መልእክት ለሁሉም (Broadcast)</h3>
             </div>
             <div style="padding: 1.5rem;">
@@ -421,6 +436,47 @@
             } finally {
                 btn.disabled = false;
                 btn.textContent = '🚀 መልእክቱን ላክ';
+            }
+        }
+
+        async function searchUser() {
+            const userId = document.getElementById('search-user-id').value;
+            if (!userId) return alert('እባክዎ መለያ ቁጥር ያስገቡ');
+
+            const resultArea = document.getElementById('search-result-area');
+            resultArea.style.display = 'block';
+            resultArea.innerHTML = '⏳ በመፈለግ ላይ...';
+
+            let token = localStorage.getItem('bingo_admin_token') || localStorage.getItem('bingo_token');
+            try {
+                // We'll reuse the dashboard logic but filter or create a specific endpoint
+                // For now, let's fetch all and filter in JS (simple approach for existing API)
+                const res = await fetch('/api/admin/dashboard', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                const user = data.users.find(u => u.id == userId);
+
+                if (user) {
+                    resultArea.innerHTML = `
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <p><strong>ስም:</strong> ${user.username}</p>
+                                <p><strong>ቴሌግራም ID:</strong> ${user.telegram_id}</p>
+                                <p><strong>ሒሳብ:</strong> <span style="color: var(--color-primary); font-weight: bold;">${parseFloat(user.balance).toFixed(2)} ETB</span></p>
+                            </div>
+                            <div style="display: flex; gap: 5px;">
+                                <button class="btn-action btn-primary" onclick="updateBalance(${user.id}, 'add')">➕ ጨምር</button>
+                                <button class="btn-action btn-danger" onclick="updateBalance(${user.id}, 'subtract')">➖ ቀንስ</button>
+                                <button class="btn-action btn-outline" onclick="updateBalance(${user.id}, 'set')">⚙️ ቀይር</button>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    resultArea.innerHTML = '❌ ተጠቃሚው አልተገኘም';
+                }
+            } catch (e) {
+                resultArea.innerHTML = '❌ ስህተት ተከስቷል';
             }
         }
 
