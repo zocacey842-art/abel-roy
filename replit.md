@@ -53,6 +53,7 @@ This app is designed to work on both Render and Replit:
 The server runs on port 5000 and serves static files from the `/public` directory.
 
 ## Recent Changes
+- 2026-01-25: Added leaderboard screen with tabs for top winners and top earners.
 - 2026-01-25: Fixed withdrawal logic - now checks total deposited amount (>= 100 ETB) instead of single deposit.
 - 2026-01-25: Fixed withdrawal win check - now uses winners table instead of game_participants.
 - 2026-01-25: Added pending withdrawal request system - admin must approve before funds are released.
