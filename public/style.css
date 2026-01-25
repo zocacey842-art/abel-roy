@@ -1148,6 +1148,16 @@ html, body {
     border-color: white !important;
 }
 
+.master-cell.last-called-master {
+    background: var(--color-yellow) !important;
+    color: #000 !important;
+    transform: scale(1.1);
+    box-shadow: 0 0 15px var(--color-yellow);
+    z-index: 5;
+    font-weight: 900;
+    border: 2px solid #fff !important;
+}
+
 /* Modern Alert Styling */
 .modern-alert-overlay {
     position: fixed;

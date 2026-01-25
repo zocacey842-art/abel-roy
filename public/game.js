@@ -327,6 +327,11 @@ function renderPlayerCard(cardId) {
     const grid = document.getElementById('player-bingo-card');
     if (!grid || !BINGO_CARDS[cardId]) return;
     
+    const activeTag = document.querySelector('.active-tag');
+    if (activeTag && cardId) {
+        activeTag.textContent = `CARD #${cardId}`;
+    }
+    
     grid.innerHTML = '';
     const cardData = BINGO_CARDS[cardId];
     
@@ -358,8 +363,15 @@ function updateCalledNumbers(num, allCalled) {
         lastNumEl.classList.add('last-number-pop');
     }
 
+    // Reset all master cells and highlight the current last one
+    document.querySelectorAll('.master-cell').forEach(cell => {
+        cell.classList.remove('last-called-master');
+    });
+
     const masterCell = document.getElementById(`master-num-${num}`);
-    if (masterCell) masterCell.classList.add('called');
+    if (masterCell) {
+        masterCell.classList.add('called', 'last-called-master');
+    }
 
     const prev1 = document.getElementById('prev-called-1');
     const prev2 = document.getElementById('prev-called-2');
