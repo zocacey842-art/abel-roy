@@ -406,7 +406,7 @@ app.post('/api/login', async (req, res) => {
 
 app.get('/api/config', (req, res) => {
     res.json({
-        botUsername: process.env.TELEGRAM_BOT_USERNAME || 'RoyalBingoBot'
+        botUsername: 'RoyalBingoVV2_bot'
     });
 });
 
