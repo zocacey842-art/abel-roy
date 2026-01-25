@@ -473,14 +473,28 @@ app.post('/api/webhook/sms', async (req, res) => {
 
                 if (pendingMatch.rows.length > 0) {
                     const deposit = pendingMatch.rows[0];
+                    const amount = parseFloat(deposit.amount);
+                    const bonus = amount * 0.10;
                     
                     await pool.query("UPDATE deposits SET status = 'completed' WHERE id = $1", [deposit.id]);
-                    await Wallet.deposit(deposit.user_id, deposit.amount, `Auto-Approved (User first): ${transactionId}`);
+                    
+                    // Base amount to total balance
+                    await Wallet.deposit(deposit.user_id, amount, `Auto-Approved: ${transactionId}`);
+                    
+                    // 10% bonus to deposit_balance (non-withdrawable)
+                    if (bonus > 0) {
+                        await pool.query('UPDATE wallets SET deposit_balance = deposit_balance + $1 WHERE user_id = $2', [bonus, deposit.user_id]);
+                        await pool.query(
+                            'INSERT INTO transactions (user_id, amount, type, description) VALUES ($1, $2, $3, $4)',
+                            [deposit.user_id, bonus, 'deposit_bonus', `10% Deposit bonus for TX ${transactionId}`]
+                        );
+                    }
+                    
                     await pool.query("UPDATE received_sms SET processed = true WHERE transaction_id = $1", [transactionId]);
                     
                     const userResult = await pool.query('SELECT telegram_id FROM users WHERE id = $1', [deposit.user_id]);
                     if (bot && userResult.rows[0]?.telegram_id) {
-                        const userMsg = `✅ *የዲፖዚት ጥያቄዎ በራስ-ሰር ተረጋግጧል!*\n\nመጠን: ${deposit.amount} ETB\nትራንዛክሽን ID: ${transactionId}\n\nመልካም ጨዋታ!`;
+                        const userMsg = `✅ *የዲፖዚት ጥያቄዎ በራስ-ሰር ተረጋግጧል!*\n\nመጠን: ${amount} ETB\nቦነስ (10%): ${bonus.toFixed(2)} ETB\nትራንዛክሽን ID: ${transactionId}\n\nመልካም ጨዋታ!`;
                         bot.sendMessage(userResult.rows[0].telegram_id, userMsg, { parse_mode: 'Markdown' }).catch(e => console.error('Bot notify error:', e));
                     }
                 }

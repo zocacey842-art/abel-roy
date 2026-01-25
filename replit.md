@@ -44,8 +44,6 @@ Royal Bingo is a Telegram-based bingo game application with web frontend. Users 
 The server runs on port 5000 and serves static files from the `/public` directory.
 
 ## Recent Changes
-- 2026-01-24: Initial setup on Replit
-  - Created directory structure (db/, models/, data/, public/)
-  - Moved source files to appropriate directories
-  - Configured PostgreSQL database
-  - Set up workflow for port 5000
+- 2026-01-25: Added 10% deposit bonus (non-withdrawable) for all deposits.
+- 2026-01-25: Updated landing page layout and reduced signup bonus to 10 ETB.
+- 2026-01-25: Updated bot link to @RoyalBingoVV2_bot and added news channel link.
