@@ -632,6 +632,49 @@ app.post('/api/admin/reject-deposit', adminAuthMiddleware, async (req, res) => {
     }
 });
 
+app.post('/api/admin/broadcast', adminAuthMiddleware, upload.single('image'), async (req, res) => {
+    const { message } = req.body;
+    const imagePath = req.file ? req.file.path : null;
+    
+    try {
+        if (!req.user.isAdmin) {
+            const userResult = await pool.query('SELECT telegram_id FROM users WHERE id = $1', [req.user.userId]);
+            const telegramId = userResult.rows[0]?.telegram_id;
+            if (!telegramId || telegramId.toString() !== ADMIN_CHAT_ID.toString()) {
+                return res.status(403).json({ error: 'Access denied' });
+            }
+        }
+
+        const users = await pool.query('SELECT telegram_id FROM users WHERE telegram_id IS NOT NULL');
+        let successCount = 0;
+        let failCount = 0;
+
+        for (const user of users.rows) {
+            try {
+                if (imagePath) {
+                    await bot.sendPhoto(user.telegram_id, fs.createReadStream(imagePath), {
+                        caption: message,
+                        parse_mode: 'Markdown'
+                    });
+                } else {
+                    await bot.sendMessage(user.telegram_id, message, { parse_mode: 'Markdown' });
+                }
+                successCount++;
+            } catch (err) {
+                console.error(`Failed to send broadcast to ${user.telegram_id}:`, err.message);
+                failCount++;
+            }
+        }
+
+        if (imagePath) fs.unlinkSync(imagePath); // Clean up uploaded file
+
+        res.json({ success: true, successCount, failCount });
+    } catch (err) {
+        console.error('Broadcast Error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 app.get('/admin', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });

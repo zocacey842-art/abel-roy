@@ -210,6 +210,23 @@
 
         <section class="admin-card">
             <div class="card-header">
+                <h3>📢 መልእክት ለሁሉም (Broadcast)</h3>
+            </div>
+            <div style="padding: 1.5rem;">
+                <div class="form-group" style="margin-bottom: 1rem;">
+                    <label style="display: block; margin-bottom: 0.5rem; color: var(--color-text-dim);">የመልእክት ጽሁፍ (Markdown ይቻላል)</label>
+                    <textarea id="broadcast-message" placeholder="መልእክትዎን እዚህ ይጻፉ..." style="width: 100%; height: 100px; padding: 1rem; background: rgba(0,0,0,0.2); border: 1px solid #334155; color: white; border-radius: 0.5rem; resize: none;"></textarea>
+                </div>
+                <div class="form-group" style="margin-bottom: 1rem;">
+                    <label style="display: block; margin-bottom: 0.5rem; color: var(--color-text-dim);">ምስል (አማራጭ)</label>
+                    <input type="file" id="broadcast-image" accept="image/*" style="width: 100%; color: var(--color-text-dim);">
+                </div>
+                <button class="btn-action btn-primary" id="send-broadcast-btn" onclick="sendBroadcast()">🚀 መልእክቱን ላክ</button>
+            </div>
+        </section>
+
+        <section class="admin-card">
+            <div class="card-header">
                 <h3>👥 ተጠቃሚዎች</h3>
                 <button class="btn-action btn-outline" onclick="fetchAdminData()">🔄 አድስ</button>
             </div>
@@ -362,6 +379,49 @@
             });
             if (res.ok) fetchAdminData();
             else alert('ጥያቄውን ውድቅ ማድረግ አልተቻለም');
+        }
+
+        async function sendBroadcast() {
+            const message = document.getElementById('broadcast-message').value;
+            const imageFile = document.getElementById('broadcast-image').files[0];
+            const btn = document.getElementById('send-broadcast-btn');
+
+            if (!message && !imageFile) {
+                return alert('እባክዎ መልእክት ወይም ምስል ያስገቡ');
+            }
+
+            if (!confirm('ይህ መልእክት ለሁሉም ተጠቃሚዎች ይላካል፡፡ እርግጠኛ ነዎት?')) return;
+
+            btn.disabled = true;
+            btn.textContent = '⏳ በመላክ ላይ...';
+
+            const formData = new FormData();
+            formData.append('message', message);
+            if (imageFile) formData.append('image', imageFile);
+
+            let token = localStorage.getItem('bingo_admin_token') || localStorage.getItem('bingo_token');
+            try {
+                const res = await fetch('/api/admin/broadcast', {
+                    method: 'POST',
+                    headers: { 
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: formData
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert(`መልእክቱ በተሳካ ሁኔታ ተልኳል! \nተሳክቷል: ${data.successCount} \nተከሽፏል: ${data.failCount}`);
+                    document.getElementById('broadcast-message').value = '';
+                    document.getElementById('broadcast-image').value = '';
+                } else {
+                    alert('መልእክቱን መላክ አልተቻለም: ' + data.error);
+                }
+            } catch (e) {
+                alert('ስህተት ተከስቷል');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '🚀 መልእክቱን ላክ';
+            }
         }
 
         fetchAdminData();
