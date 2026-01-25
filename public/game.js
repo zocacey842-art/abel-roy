@@ -1002,6 +1002,38 @@ async function loadWallet() {
             if (depositEl) depositEl.textContent = parseFloat(user.deposit_balance || 0).toFixed(2);
             if (winEl) winEl.textContent = parseFloat(user.win_balance || 0).toFixed(2);
 
+            // Update withdrawal requirements in UI
+            const reqDeposit = document.getElementById('req-deposit');
+            const reqWins = document.getElementById('req-wins');
+            const withdrawBtn = document.getElementById('submit-withdraw-btn');
+
+            // We need total deposits for the UI, adding it to the profile API or calculating here if we had the data
+            // For now, let's assume we'll update the profile API to include this info or show based on what we have
+            // To be precise, let's update the Profile API in server.js to include total_deposited
+            
+            const totalDeposited = parseFloat(user.total_deposited || 0);
+            const totalWins = parseInt(user.total_wins || 0);
+
+            if (reqDeposit) {
+                reqDeposit.textContent = `ቢያንስ 100 ብር ዲፖዚት ማድረግ (${totalDeposited}/100)`;
+                reqDeposit.style.color = totalDeposited >= 100 ? '#22c55e' : '#ef4444';
+            }
+            if (reqWins) {
+                reqWins.textContent = `ቢያንስ 2 ጊዜ ማሸነፍ (${totalWins}/2)`;
+                reqWins.style.color = totalWins >= 2 ? '#22c55e' : '#ef4444';
+            }
+
+            if (withdrawBtn) {
+                if (totalDeposited < 100 || totalWins < 2) {
+                    withdrawBtn.disabled = true;
+                    withdrawBtn.style.opacity = '0.5';
+                    withdrawBtn.title = 'መስፈርቶቹን አላሟሉም';
+                } else {
+                    withdrawBtn.disabled = false;
+                    withdrawBtn.style.opacity = '1';
+                }
+            }
+
             // Also update transaction list
             loadTransactions();
         }

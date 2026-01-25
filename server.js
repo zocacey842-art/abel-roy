@@ -161,9 +161,30 @@ app.post('/api/withdraw', authMiddleware, async (req, res) => {
         if (!amount || !method || !accountDetails) {
             return res.status(400).json({ error: 'Missing required fields' });
         }
+
+        // Check constraints: min 100 ETB deposit history and 2 wins
+        const depositCheck = await pool.query(
+            "SELECT COALESCE(SUM(amount), 0) as total FROM deposits WHERE user_id = $1 AND status = 'completed'",
+            [req.user.userId]
+        );
+        const winCheck = await pool.query(
+            "SELECT COUNT(*) FROM winners WHERE user_id = $1",
+            [req.user.userId]
+        );
+
+        const totalDeposited = parseFloat(depositCheck.rows[0].total);
+        const winCount = parseInt(winCheck.rows[0].count);
+
+        if (totalDeposited < 100) {
+            return res.status(400).json({ error: 'ገንዘብ ለማውጣት ቢያንስ 100 ብር ዲፖዚት ማድረግ ይኖርብዎታል!' });
+        }
+        if (winCount < 2) {
+            return res.status(400).json({ error: 'ገንዘብ ለማውጣት ቢያንስ 2 ጊዜ ማሸነፍ ይኖርብዎታል!' });
+        }
+
         const wallet = await Wallet.getBalance(req.user.userId);
-        if (wallet.total < amount) {
-            return res.status(400).json({ error: 'በቂ የሂሳብ መጠን የለዎትም!' });
+        if (wallet.win < amount) {
+            return res.status(400).json({ error: 'ሊወጣ የሚችል በቂ የዊን ባላንስ (Win Balance) የለዎትም!' });
         }
 
         const result = await Wallet.withdraw(req.user.userId, amount, `Withdrawal to ${method}: ${accountDetails}`);
@@ -357,7 +378,8 @@ app.get('/api/profile', authMiddleware, async (req, res) => {
                 (w.deposit_balance + w.win_balance) as balance,
                 w.deposit_balance, w.win_balance,
                 (SELECT COUNT(*) FROM game_participants WHERE user_id = u.id) as total_games,
-                (SELECT COUNT(*) FROM winners WHERE user_id = u.id) as total_wins
+                (SELECT COUNT(*) FROM winners WHERE user_id = u.id) as total_wins,
+                (SELECT COALESCE(SUM(amount), 0) FROM deposits WHERE user_id = u.id AND status = 'completed') as total_deposited
             FROM users u 
             JOIN wallets w ON u.id = w.user_id 
             WHERE u.id = $1
