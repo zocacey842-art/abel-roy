@@ -34,11 +34,20 @@ Royal Bingo is a Telegram-based bingo game application with web frontend. Users 
 - **Auth**: JWT tokens, bcrypt for password hashing
 
 ## Environment Variables
-- `DATABASE_URL` - PostgreSQL connection string (auto-configured)
-- `TELEGRAM_BOT_TOKEN` - Telegram bot token (optional)
-- `ADMIN_CHAT_ID` - Telegram chat ID for admin user
-- `JWT_SECRET` - Secret for JWT tokens
-- `REDIS_URL` - Redis connection URL (optional)
+- `DATABASE_URL` - PostgreSQL connection string (required, auto-configured on Replit/Render)
+- `TELEGRAM_BOT_TOKEN` - Telegram bot token (optional, for bot functionality)
+- `ADMIN_CHAT_ID` - Telegram chat ID for admin user (required for admin access)
+- `JWT_SECRET` - Secret for JWT tokens (required, auto-generated on Render)
+- `REDIS_URL` - Redis connection URL (optional, falls back to in-memory)
+- `RENDER_EXTERNAL_URL` - Auto-provided by Render for production URL
+- `MINI_APP_URL` - Custom URL override (optional)
+- `REPLIT_DEV_DOMAIN` - Auto-provided by Replit for development URL
+
+## Deployment Compatibility
+This app is designed to work on both Render and Replit:
+- Server binds to `0.0.0.0:5000` for both platforms
+- URL detection: RENDER_EXTERNAL_URL > MINI_APP_URL > REPLIT_DEV_DOMAIN > fallback
+- WebSocket support enabled for real-time gameplay
 
 ## Running the Application
 The server runs on port 5000 and serves static files from the `/public` directory.
