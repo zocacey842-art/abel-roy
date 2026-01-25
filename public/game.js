@@ -910,6 +910,8 @@ async function loadProfile() {
             const idEl = document.getElementById('profile-id-sub');
             const telegramIdEl = document.getElementById('profile-telegram-id');
             const balanceEl = document.getElementById('profile-balance');
+            const depositEl = document.getElementById('profile-deposit-balance');
+            const winEl = document.getElementById('profile-win-balance');
             const gamesEl = document.getElementById('profile-total-games');
             const winsEl = document.getElementById('profile-wins');
             const avatarLetterEl = document.getElementById('profile-avatar-letter');
@@ -923,6 +925,8 @@ async function loadProfile() {
             if (telegramIdEl) telegramIdEl.textContent = data.telegram_id || '---';
             
             if (balanceEl) balanceEl.textContent = `${parseFloat(data.balance || 0).toFixed(2)} ETB`;
+            if (depositEl) depositEl.textContent = `${parseFloat(data.deposit_balance || 0).toFixed(2)} ETB`;
+            if (winEl) winEl.textContent = `${parseFloat(data.win_balance || 0).toFixed(2)} ETB`;
             if (gamesEl) gamesEl.textContent = data.total_games || 0;
             if (winsEl) winsEl.textContent = data.total_wins || 0;
         }
@@ -992,11 +996,56 @@ async function loadWallet() {
             if (walletBalanceEl) walletBalanceEl.textContent = balance;
             if (mainWalletValueEl) mainWalletValueEl.textContent = balance;
             
+            // Update detailed balances for wallet screen
+            const depositEl = document.getElementById('wallet-deposit-value');
+            const winEl = document.getElementById('wallet-win-value');
+            if (depositEl) depositEl.textContent = parseFloat(user.deposit_balance || 0).toFixed(2);
+            if (winEl) winEl.textContent = parseFloat(user.win_balance || 0).toFixed(2);
+
             // Also update transaction list
             loadTransactions();
         }
     } catch (e) {
         console.error('Failed to load wallet', e);
+    }
+}
+
+async function loadProfile() {
+    const token = localStorage.getItem('bingo_token');
+    if (!token) return;
+    try {
+        const res = await fetch('/api/profile', {
+            headers: { 'Authorization': `Bearer ${token}` },
+            cache: 'no-store'
+        });
+        if (res.ok) {
+            const data = await res.json();
+            
+            const usernameEl = document.getElementById('profile-username-header');
+            const idEl = document.getElementById('profile-id-sub');
+            const tgIdEl = document.getElementById('profile-telegram-id');
+            const balanceEl = document.getElementById('profile-balance');
+            const depositEl = document.getElementById('profile-deposit-balance');
+            const winEl = document.getElementById('profile-win-balance');
+            const gamesEl = document.getElementById('profile-total-games');
+            const winsEl = document.getElementById('profile-wins');
+            const avatarEl = document.getElementById('profile-avatar-letter');
+
+            if (usernameEl) usernameEl.textContent = data.username;
+            if (idEl) idEl.textContent = `ID: ${data.id}`;
+            if (tgIdEl) tgIdEl.textContent = data.telegram_id;
+            if (balanceEl) balanceEl.textContent = `${parseFloat(data.balance || 0).toFixed(2)} ETB`;
+            if (depositEl) depositEl.textContent = `${parseFloat(data.deposit_balance || 0).toFixed(2)} ETB`;
+            if (winEl) winEl.textContent = `${parseFloat(data.win_balance || 0).toFixed(2)} ETB`;
+            if (gamesEl) gamesEl.textContent = data.total_games || 0;
+            if (winsEl) winsEl.textContent = data.total_wins || 0;
+            if (avatarEl && data.username) avatarEl.textContent = data.username.charAt(0).toUpperCase();
+
+            // Update user in local storage
+            localStorage.setItem('bingo_user', JSON.stringify(data));
+        }
+    } catch (e) {
+        console.error('Failed to load profile', e);
     }
 }
 

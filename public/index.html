@@ -269,7 +269,17 @@
                         <div class="profile-stat-item">
                             <span class="stat-icon">💰</span>
                             <span class="stat-value" id="profile-balance">0.00 ETB</span>
-                            <span class="stat-label">Balance</span>
+                            <span class="stat-label">Total Balance</span>
+                        </div>
+                        <div class="profile-stat-item">
+                            <span class="stat-icon">📥</span>
+                            <span class="stat-value" id="profile-deposit-balance" style="font-size: 0.8em;">0.00 ETB</span>
+                            <span class="stat-label">Non-Withdrawable</span>
+                        </div>
+                        <div class="profile-stat-item">
+                            <span class="stat-icon">📤</span>
+                            <span class="stat-value" id="profile-win-balance" style="font-size: 0.8em; color: var(--color-success);">0.00 ETB</span>
+                            <span class="stat-label">Withdrawable (Wins)</span>
                         </div>
                         <div class="profile-stat-item">
                             <span class="stat-icon">🎮</span>
@@ -312,8 +322,21 @@
                         <h2>Wallet Balance</h2>
                     </div>
                     <div class="wallet-balance-display">
-                        <span class="currency">ETB</span>
-                        <span id="wallet-balance-value" class="balance-amount">0.00</span>
+                        <div class="balance-item">
+                            <span class="currency">ETB</span>
+                            <span id="wallet-balance-value" class="balance-amount">0.00</span>
+                            <span class="balance-label">Total Balance</span>
+                        </div>
+                        <div class="balance-details" style="display: flex; justify-content: space-around; width: 100%; margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.1);">
+                            <div class="balance-sub-item">
+                                <span id="wallet-deposit-value" style="color: var(--color-text); font-weight: bold;">0.00</span>
+                                <span style="display: block; font-size: 0.7em; color: var(--color-text-dim);">Non-Withdrawable</span>
+                            </div>
+                            <div class="balance-sub-item">
+                                <span id="wallet-win-value" style="color: var(--color-success); font-weight: bold;">0.00</span>
+                                <span style="display: block; font-size: 0.7em; color: var(--color-text-dim);">Withdrawable (Wins)</span>
+                            </div>
+                        </div>
                     </div>
                     
                     <div class="wallet-actions">
