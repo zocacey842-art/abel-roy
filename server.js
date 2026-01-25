@@ -193,37 +193,14 @@ app.post('/api/withdraw', authMiddleware, async (req, res) => {
             return res.status(400).json({ error: 'Missing required fields' });
         }
 
-        // Check constraints: min 100 ETB deposit history and 2 wins
-        const depositCheck = await pool.query(
-            "SELECT COALESCE(SUM(amount), 0) as total FROM deposits WHERE user_id = $1 AND status = 'completed'",
-            [req.user.userId]
-        );
-        const winCheck = await pool.query(
-            "SELECT COUNT(*) FROM winners WHERE user_id = $1",
-            [req.user.userId]
-        );
-
-        const totalDeposited = parseFloat(depositCheck.rows[0].total);
-        const winCount = parseInt(winCheck.rows[0].count);
-
-        if (totalDeposited < 100) {
-            return res.status(400).json({ error: 'ገንዘብ ለማውጣት ቢያንስ 100 ብር ዲፖዚት ማድረግ ይኖርብዎታል!' });
-        }
-        if (winCount < 2) {
-            return res.status(400).json({ error: 'ገንዘብ ለማውጣት ቢያንስ 2 ጊዜ ማሸነፍ ይኖርብዎታል!' });
-        }
-
-        const wallet = await Wallet.getBalance(req.user.userId);
-        if (wallet.win < amount) {
-            return res.status(400).json({ error: 'ሊወጣ የሚችል በቂ የዊን ባላንስ (Win Balance) የለዎትም!' });
-        }
-
+        // የWallet ሞዴልን በመጠቀም ዊዝድሮውን ማካሄድ
         const result = await Wallet.withdraw(req.user.userId, amount, `Withdrawal to ${method}: ${accountDetails}`);
         
         if (!result.success) {
             return res.status(400).json({ error: result.error });
         }
 
+        // ለአድሚን በቴሌግራም መልእክት መላክ
         if (bot) {
             const adminMsg = `💸 *አዲስ የዊዝድሮው ጥያቄ*\n\nተጠቃሚ: ${req.user.username}\nመጠን: ${amount} ETB\nመንገድ: ${method}\nዝርዝር: ${accountDetails}`;
             bot.sendMessage(ADMIN_CHAT_ID, adminMsg, { parse_mode: 'Markdown' }).catch(err => console.error('Admin notify error:', err));
@@ -235,7 +212,6 @@ app.post('/api/withdraw', authMiddleware, async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
-
 app.post('/api/request-otp', async (req, res) => {
     const { username, telegramId, password, referrerId } = req.body;
     try {
