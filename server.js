@@ -411,6 +411,69 @@ app.get('/api/profile', authMiddleware, async (req, res) => {
     }
 });
 
+// SMS Forwarder Webhook for Automatic Deposit Approval
+app.post('/api/webhook/sms', async (req, res) => {
+    // Expected format from SMS Forwarder: { from: "81122", body: "...", timestamp: "..." }
+    const { from, body } = req.body;
+    
+    console.log(`[SMS Webhook] Received from ${from}: ${body}`);
+
+    if (!from || !body) return res.sendStatus(400);
+
+    // Only process Telebirr messages (often from '81122' or 'telebirr')
+    if (from.toLowerCase().includes('81122') || from.toLowerCase().includes('telebirr')) {
+        // Extract Transaction ID and Amount from Telebirr SMS
+        // Example: "Transaction ID: ABC123DEF... amount: 50.00 ETB"
+        const txMatch = body.match(/(?:Transaction ID|መለያ ቁጥር|ID)[:\s]+([A-Z0-9]+)/i) || body.match(/([A-Z0-9]{10,})/);
+        const amountMatch = body.match(/(?:amount|መጠን)[:\s]*([\d,.]+)/i);
+
+        if (txMatch) {
+            const transactionId = txMatch[1];
+            const amount = amountMatch ? parseFloat(amountMatch[1].replace(/,/g, '')) : null;
+
+            console.log(`[SMS Webhook] Extracted TX: ${transactionId}, Amount: ${amount}`);
+
+            // Find matching pending deposit
+            try {
+                const pendingMatch = await pool.query(
+                    "SELECT * FROM deposits WHERE confirmation_code = $1 AND status = 'pending'",
+                    [transactionId]
+                );
+
+                if (pendingMatch.rows.length > 0) {
+                    const deposit = pendingMatch.rows[0];
+                    
+                    // Optional: verify amount if available in SMS
+                    if (amount && Math.abs(parseFloat(deposit.amount) - amount) > 0.01) {
+                        console.warn(`[SMS Webhook] Amount mismatch! SMS: ${amount}, DB: ${deposit.amount}`);
+                        // We still continue or log for manual review, but matching TX ID is strong indicator
+                    }
+
+                    // Auto-approve
+                    await pool.query("UPDATE deposits SET status = 'completed' WHERE id = $1", [deposit.id]);
+                    await Wallet.deposit(deposit.user_id, deposit.amount, `Auto-Approved: ${transactionId}`);
+                    
+                    // Notify user via bot
+                    const userResult = await pool.query('SELECT telegram_id FROM users WHERE id = $1', [deposit.user_id]);
+                    if (bot && userResult.rows[0]?.telegram_id) {
+                        const userMsg = `✅ *የዲፖዚት ጥያቄዎ በራስ-ሰር ተረጋግጧል!*\n\nመጠን: ${deposit.amount} ETB\nትራንዛክሽን ID: ${transactionId}\n\nሒሳብዎ ላይ ተጨምሯል። መልካም ጨዋታ!`;
+                        bot.sendMessage(userResult.rows[0].telegram_id, userMsg, { parse_mode: 'Markdown' }).catch(e => console.error('Bot notify error:', e));
+                    }
+                    
+                    console.log(`[SMS Webhook] Auto-approved deposit for User ID: ${deposit.user_id}`);
+                } else {
+                    // Log for manual matching if needed later
+                    console.log(`[SMS Webhook] No matching pending deposit for TX: ${transactionId}`);
+                }
+            } catch (err) {
+                console.error('[SMS Webhook] Error processing match:', err);
+            }
+        }
+    }
+
+    res.sendStatus(200);
+});
+
 // Admin Endpoints
 app.get('/api/admin/dashboard', adminAuthMiddleware, async (req, res) => {
     try {
