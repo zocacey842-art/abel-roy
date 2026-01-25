@@ -416,6 +416,46 @@ app.get('/api/profile', authMiddleware, async (req, res) => {
     }
 });
 
+app.get('/api/leaderboard', async (req, res) => {
+    try {
+        const topWinners = await pool.query(`
+            SELECT 
+                u.id,
+                u.username,
+                COUNT(w.id) as total_wins,
+                COALESCE(SUM(w.prize_amount), 0) as total_earnings
+            FROM users u
+            LEFT JOIN winners w ON u.id = w.user_id
+            GROUP BY u.id, u.username
+            HAVING COUNT(w.id) > 0
+            ORDER BY total_wins DESC, total_earnings DESC
+            LIMIT 50
+        `);
+        
+        const topEarners = await pool.query(`
+            SELECT 
+                u.id,
+                u.username,
+                COUNT(w.id) as total_wins,
+                COALESCE(SUM(w.prize_amount), 0) as total_earnings
+            FROM users u
+            LEFT JOIN winners w ON u.id = w.user_id
+            GROUP BY u.id, u.username
+            HAVING COALESCE(SUM(w.prize_amount), 0) > 0
+            ORDER BY total_earnings DESC, total_wins DESC
+            LIMIT 50
+        `);
+
+        res.json({
+            topWinners: topWinners.rows,
+            topEarners: topEarners.rows
+        });
+    } catch (err) {
+        console.error('Leaderboard API Error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // SMS Forwarder Webhook for Automatic Deposit Approval
 app.post('/api/webhook/sms', async (req, res) => {
     const { from, body } = req.body;

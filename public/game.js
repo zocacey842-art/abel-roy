@@ -702,7 +702,7 @@ function loadWallet() {
 }
 
 function showScreen(screenId) {
-    const screens = ['landing-screen', 'stake-screen', 'register-screen', 'otp-screen', 'selection-screen', 'profile-screen', 'wallet-screen', 'game-screen', 'auth-screen', 'deposit-screen', 'withdraw-screen'];
+    const screens = ['landing-screen', 'stake-screen', 'register-screen', 'otp-screen', 'selection-screen', 'profile-screen', 'wallet-screen', 'game-screen', 'auth-screen', 'deposit-screen', 'withdraw-screen', 'leaderboard-screen'];
     screens.forEach(id => {
         const el = document.getElementById(id);
         if (el) el.style.display = (id === screenId) ? 'flex' : 'none';
@@ -712,7 +712,63 @@ function showScreen(screenId) {
         loadWallet();
         loadTransactions();
     }
+    
+    if (screenId === 'leaderboard-screen') {
+        loadLeaderboard();
+    }
 }
+
+let leaderboardData = { topWinners: [], topEarners: [] };
+let currentLeaderboardTab = 'winners';
+
+async function loadLeaderboard() {
+    const listEl = document.getElementById('leaderboard-list');
+    if (!listEl) return;
+    
+    listEl.innerHTML = '<div class="leaderboard-loading">እየጫነ ነው...</div>';
+    
+    try {
+        const res = await fetch('/api/leaderboard');
+        leaderboardData = await res.json();
+        renderLeaderboard();
+    } catch (err) {
+        listEl.innerHTML = '<div class="leaderboard-error">መረጃ ማግኘት አልተቻለም</div>';
+    }
+}
+
+function switchLeaderboardTab(tab) {
+    currentLeaderboardTab = tab;
+    document.getElementById('tab-winners').classList.toggle('active', tab === 'winners');
+    document.getElementById('tab-earners').classList.toggle('active', tab === 'earners');
+    renderLeaderboard();
+}
+
+function renderLeaderboard() {
+    const listEl = document.getElementById('leaderboard-list');
+    if (!listEl) return;
+    
+    const data = currentLeaderboardTab === 'winners' ? leaderboardData.topWinners : leaderboardData.topEarners;
+    
+    if (!data || data.length === 0) {
+        listEl.innerHTML = '<div class="leaderboard-empty">እስካሁን ማንም አላሸነፈም</div>';
+        return;
+    }
+    
+    const medals = ['🥇', '🥈', '🥉'];
+    
+    listEl.innerHTML = data.map((player, index) => `
+        <div class="leaderboard-item ${index < 3 ? 'top-three' : ''}">
+            <div class="leaderboard-rank">${index < 3 ? medals[index] : (index + 1)}</div>
+            <div class="leaderboard-name">${player.username || 'Unknown'}</div>
+            <div class="leaderboard-stats">
+                <span class="stat-wins">${player.total_wins} ድል</span>
+                <span class="stat-earnings">${parseFloat(player.total_earnings).toFixed(0)} ETB</span>
+            </div>
+        </div>
+    `).join('');
+}
+
+window.switchLeaderboardTab = switchLeaderboardTab;
 
 async function loadTransactions() {
     const token = localStorage.getItem('bingo_token');
@@ -1223,6 +1279,9 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (target === 'profile') {
                 showScreen('profile-screen');
                 loadProfile();
+            } else if (target === 'leaderboard') {
+                showScreen('leaderboard-screen');
+                loadLeaderboard();
             } else if (target === 'game') {
                 showSelectionScreen();
                 if (!ws || ws.readyState !== WebSocket.OPEN) {

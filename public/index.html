@@ -227,6 +227,7 @@
             <div class="selection-footer">
                 <div class="footer-btn active" data-target="game">Game</div>
                 <div class="footer-btn" data-target="wallet">Wallet</div>
+                <div class="footer-btn" data-target="leaderboard">Top</div>
                 <div class="footer-btn" data-target="profile">Profile</div>
             </div>
             
@@ -312,7 +313,31 @@
             <div class="selection-footer">
                 <div class="footer-btn" data-target="game">Game</div>
                 <div class="footer-btn" data-target="wallet">Wallet</div>
+                <div class="footer-btn" data-target="leaderboard">Top</div>
                 <div class="footer-btn active" data-target="profile">Profile</div>
+            </div>
+        </div>
+
+        <div id="leaderboard-screen" style="display: none; padding-top: 60px;">
+            <div class="welcome-box" style="max-width: 500px; margin: 0 auto;">
+                <button class="screen-back-btn" onclick="showScreen('selection-screen')">← ተመለስ</button>
+                <h1 style="text-align: center; margin-bottom: 20px;">🏆 ሊደርቦርድ</h1>
+                
+                <div class="leaderboard-tabs" style="display: flex; gap: 10px; margin-bottom: 20px;">
+                    <button id="tab-winners" class="leaderboard-tab active" onclick="switchLeaderboardTab('winners')">🥇 ብዙ አሸናፊዎች</button>
+                    <button id="tab-earners" class="leaderboard-tab" onclick="switchLeaderboardTab('earners')">💰 ብዙ ገቢ</button>
+                </div>
+                
+                <div id="leaderboard-list" class="leaderboard-list">
+                    <div class="leaderboard-loading">እየጫነ ነው...</div>
+                </div>
+            </div>
+            
+            <div class="selection-footer">
+                <div class="footer-btn" data-target="game">Game</div>
+                <div class="footer-btn" data-target="wallet">Wallet</div>
+                <div class="footer-btn active" data-target="leaderboard">Top</div>
+                <div class="footer-btn" data-target="profile">Profile</div>
             </div>
         </div>
 
