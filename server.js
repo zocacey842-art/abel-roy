@@ -812,6 +812,7 @@ function broadcast(data) {
 }
 
 function startGlobalTimer() {
+    // 1. መጀመሪያ ማንኛውም ንቁ የሆነ ቆጣሪ ካለ እናጠፋዋለን (ሰዓቱ እንዳይደራረብ ዋናው መፍትሄ ይህ ነው)
     if (gameInterval) clearInterval(gameInterval);
     
     gameInterval = setInterval(() => {
@@ -820,7 +821,6 @@ function startGlobalTimer() {
             broadcast({ type: 'timer', timeLeft: selectionTimeLeft, status: gameStatus });
             
             if (selectionTimeLeft <= 0) {
-                // Check if anyone has selected a card
                 const playerArray = Object.values(players);
                 const anySelection = playerArray.some(p => p.selectedCardId);
                 
@@ -828,7 +828,10 @@ function startGlobalTimer() {
                     gameStatus = 'playing';
                     selectionTimeLeft = 0;
                     
-                    const totalPlayers = Object.values(players).filter(p => p.selectedCardId).length;
+                    // 2. ጨዋታው ሲጀምር የመምረጫ ሰዓቱን እናቆማለን
+                    clearInterval(gameInterval); 
+                    
+                    const totalPlayers = playerArray.filter(p => p.selectedCardId).length;
                     const totalStake = totalPlayers * 10;
                     const prize = Math.floor(totalStake * 0.8);
 
@@ -839,17 +842,17 @@ function startGlobalTimer() {
                         prizePool: prize
                     });
                     
-                    // Generate numbers and manage game state
-                    const gameId = 'game_' + Date.now();
+                    // የጨዋታ መረጃዎችን ማዘጋጀት
                     const calledNumbers = [];
                     const numbersPool = Array.from({length: 75}, (_, i) => i + 1);
                     
-                    // Shuffle numbers pool
+                    // ቁጥሮችን መቀላቀል (Shuffle)
                     for (let i = numbersPool.length - 1; i > 0; i--) {
                         const j = Math.floor(Math.random() * (i + 1));
                         [numbersPool[i], numbersPool[j]] = [numbersPool[j], numbersPool[i]];
                     }
 
+                    // 3. አዲስ ለቁጥር መጥሪያ የሚሆን ቆጣሪ መጀመር
                     gameInterval = setInterval(() => {
                         if (gameStatus !== 'playing') {
                             clearInterval(gameInterval);
@@ -870,15 +873,16 @@ function startGlobalTimer() {
 
                             broadcast({ type: 'number_called', number: num, allCalled: calledNumbers });
                         } else {
+                            // 4. ቁጥሮች ሲያልቁ ቆጣሪውን አጥፍቶ ወደ ምርጫ መመለስ
                             clearInterval(gameInterval);
                             gameStatus = 'selection';
                             selectionTimeLeft = 45;
                             broadcast({ type: 'game_end', status: gameStatus });
                             startGlobalTimer();
                         }
-                    }, 2000); 
+                    }, 3000); // ቁጥሮቹ በየ 3 ሰከንዱ እንዲጠሩ (ለተጫዋች ምቹ እንዲሆን)
                 } else {
-                    // No selections, recycle timer
+                    // ተጫዋች ከሌለ ሰዓቱን አድሶ መቀጠል
                     selectionTimeLeft = 45;
                     broadcast({ type: 'timer', timeLeft: selectionTimeLeft, status: gameStatus });
                 }
