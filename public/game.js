@@ -41,8 +41,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const inputAmount = document.getElementById('deposit-amount').value;
         const method = document.getElementById('deposit-method').value;
 
-        if (!inputAmount || isNaN(inputAmount) || inputAmount <= 0) {
-            return modernAlert('እባክዎ ትክክለኛ የብር መጠን ያስገቡ!');
+        if (!inputAmount || isNaN(inputAmount) || inputAmount < 30) {
+            return modernAlert('ዝቅተኛው የዲፖዚት መጠን 30 ብር ነው!');
         }
         if (!smsText || smsText.length < 10) {
             return modernAlert('እባክዎ ከቴሌብር የደረስዎትን ሙሉ መልእክት እዚህ ይለጥፉ!');

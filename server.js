@@ -138,6 +138,12 @@ app.post('/api/deposit', authMiddleware, async (req, res) => {
         if (!amount || !transactionId || !method) {
             return res.status(400).json({ error: 'Missing required fields' });
         }
+        
+        const depositAmount = parseFloat(amount);
+        if (depositAmount < 30) {
+            return res.status(400).json({ error: 'ዝቅተኛው የዲፖዚት መጠን 30 ብር ነው!' });
+        }
+
         const result = await pool.query(
             'INSERT INTO deposits (user_id, amount, confirmation_code, payment_method, status) VALUES ($1, $2, $3, $4, $5) RETURNING id',
             [req.user.userId, amount, transactionId, method, 'pending']
