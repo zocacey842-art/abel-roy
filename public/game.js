@@ -1119,8 +1119,41 @@ async function loadTransactions() {
     }
 }
 
+async function loadConfig() {
+    try {
+        const res = await fetch('/api/config');
+        if (res.ok) {
+            const config = await res.json();
+            window.botUsername = config.botUsername;
+            
+            // Update landing screen join button
+            const joinBtn = document.querySelector('.tg-join-btn');
+            if (joinBtn) {
+                joinBtn.href = `https://t.me/${config.botUsername}`;
+            }
+
+            // Update invite links if they exist in the UI
+            updateInviteLinks();
+        }
+    } catch (e) {
+        console.error('Failed to load config', e);
+    }
+}
+
+function updateInviteLinks() {
+    const userJson = localStorage.getItem('bingo_user');
+    if (userJson && window.botUsername) {
+        const user = JSON.parse(userJson);
+        const inviteInput = document.getElementById('invite-link-input');
+        if (inviteInput) {
+            inviteInput.value = `https://t.me/${window.botUsername}?start=${user.id}`;
+        }
+    }
+}
+
 // Update menu trigger to use new loadWallet
 document.addEventListener('DOMContentLoaded', () => {
+    loadConfig();
     document.querySelectorAll('.menu-item').forEach(item => {
         const oldClick = item.onclick;
         item.onclick = () => {

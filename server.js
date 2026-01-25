@@ -370,6 +370,12 @@ app.post('/api/login', async (req, res) => {
 
 // authMiddleware already defined above
 
+app.get('/api/config', (req, res) => {
+    res.json({
+        botUsername: process.env.TELEGRAM_BOT_USERNAME || 'RoyalBingoBot'
+    });
+});
+
 app.get('/api/profile', authMiddleware, async (req, res) => {
     try {
         const result = await pool.query(`
