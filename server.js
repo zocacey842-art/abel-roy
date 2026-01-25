@@ -37,7 +37,7 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-const MINI_APP_URL = process.env.MINI_APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://royal-bingo.onrender.com");
+const MINI_APP_URL = process.env.RENDER_EXTERNAL_URL || process.env.MINI_APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://royal-bingo.onrender.com");
 
 let bot = null;
 if (TELEGRAM_BOT_TOKEN) {
