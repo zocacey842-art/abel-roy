@@ -283,6 +283,29 @@
                 </table>
             </div>
         </section>
+
+        <section class="admin-card">
+            <div class="card-header">
+                <h3>💸 የገንዘብ ማውጫ ጥያቄዎች</h3>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ተጠቃሚ</th>
+                            <th>መጠን</th>
+                            <th>መንገድ</th>
+                            <th>ዝርዝር</th>
+                            <th>ሁኔታ</th>
+                            <th>ተግባራት</th>
+                        </tr>
+                    </thead>
+                    <tbody id="withdrawal-table-body">
+                        <!-- Withdrawals load here -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
     </main>
 
     <script>
@@ -329,6 +352,25 @@
                                 <div style="display: flex; gap: 5px;">
                                     <button class="btn-action btn-primary" onclick="approveDeposit(${d.id})">✅ ፍቀድ</button>
                                     <button class="btn-action btn-danger" onclick="rejectDeposit(${d.id})">❌ ሪጄክት</button>
+                                </div>
+                            ` : '<span style="color: var(--color-text-dim)">ተጠናቅቋል</span>'}
+                        </td>
+                    </tr>
+                `).join('');
+
+                const withdrawalBody = document.getElementById('withdrawal-table-body');
+                withdrawalBody.innerHTML = (data.withdrawals || []).map(w => `
+                    <tr>
+                        <td><strong>${w.username}</strong></td>
+                        <td style="font-weight: 600; color: #ef4444;">${parseFloat(w.amount).toFixed(2)} ETB</td>
+                        <td>${w.phone_number || '-'}</td>
+                        <td style="max-width: 150px; overflow: hidden; text-overflow: ellipsis;">${w.account_name || '-'}</td>
+                        <td><span class="badge ${w.status === 'pending' ? 'badge-pending' : (w.status === 'completed' ? 'badge-success' : 'badge-danger')}">${w.status.toUpperCase()}</span></td>
+                        <td>
+                            ${w.status === 'pending' ? `
+                                <div style="display: flex; gap: 5px;">
+                                    <button class="btn-action btn-primary" onclick="approveWithdrawal(${w.id})">✅ ላክ</button>
+                                    <button class="btn-action btn-danger" onclick="rejectWithdrawal(${w.id})">❌ ሪጄክት</button>
                                 </div>
                             ` : '<span style="color: var(--color-text-dim)">ተጠናቅቋል</span>'}
                         </td>
@@ -391,6 +433,38 @@
                     'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({ depositId, reason })
+            });
+            if (res.ok) fetchAdminData();
+            else alert('ጥያቄውን ውድቅ ማድረግ አልተቻለም');
+        }
+
+        async function approveWithdrawal(withdrawalId) {
+            if (!confirm('ይህንን የገንዘብ ማውጫ ጥያቄ እርግጠኛ ነዎት ያጽድቁ? ገንዘቡን መላክዎን ያረጋግጡ!')) return;
+            let token = localStorage.getItem('bingo_admin_token') || localStorage.getItem('bingo_token');
+            const res = await fetch('/api/admin/approve-withdrawal', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ withdrawalId })
+            });
+            if (res.ok) fetchAdminData();
+            else alert('ጥያቄውን ማጽደቅ አልተቻለም');
+        }
+
+        async function rejectWithdrawal(withdrawalId) {
+            const reason = prompt('ጥያቄውን ውድቅ ለማድረግ ምክንያቱን ያስገቡ (አማራጭ):');
+            if (reason === null) return;
+            
+            let token = localStorage.getItem('bingo_admin_token') || localStorage.getItem('bingo_token');
+            const res = await fetch('/api/admin/reject-withdrawal', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ withdrawalId, reason })
             });
             if (res.ok) fetchAdminData();
             else alert('ጥያቄውን ውድቅ ማድረግ አልተቻለም');

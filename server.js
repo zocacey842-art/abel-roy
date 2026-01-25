@@ -193,20 +193,24 @@ app.post('/api/withdraw', authMiddleware, async (req, res) => {
             return res.status(400).json({ error: 'Missing required fields' });
         }
 
-        // የWallet ሞዴልን በመጠቀም ዊዝድሮውን ማካሄድ
-        const result = await Wallet.withdraw(req.user.userId, amount, `Withdrawal to ${method}: ${accountDetails}`);
+        const result = await Wallet.withdraw(
+            req.user.userId, 
+            amount, 
+            `Withdrawal to ${method}: ${accountDetails}`,
+            accountDetails,
+            method
+        );
         
         if (!result.success) {
             return res.status(400).json({ error: result.error });
         }
 
-        // ለአድሚን በቴሌግራም መልእክት መላክ
         if (bot) {
-            const adminMsg = `💸 *አዲስ የዊዝድሮው ጥያቄ*\n\nተጠቃሚ: ${req.user.username}\nመጠን: ${amount} ETB\nመንገድ: ${method}\nዝርዝር: ${accountDetails}`;
+            const adminMsg = `💸 *አዲስ የዊዝድሮው ጥያቄ*\n\nተጠቃሚ: ${req.user.username}\nመጠን: ${amount} ETB\nመንገድ: ${method}\nዝርዝር: ${accountDetails}\n\n⏳ *ለማጽደቅ አድሚን ፓናል ይጎብኙ*`;
             bot.sendMessage(ADMIN_CHAT_ID, adminMsg, { parse_mode: 'Markdown' }).catch(err => console.error('Admin notify error:', err));
         }
 
-        res.json({ success: true });
+        res.json({ success: true, message: 'የዊዝድሮው ጥያቄዎ ተልኳል። በቅርቡ ይጸድቃል!' });
     } catch (err) {
         console.error('Withdraw Error:', err);
         res.status(500).json({ error: err.message });
@@ -510,13 +514,22 @@ app.get('/api/admin/dashboard', adminAuthMiddleware, async (req, res) => {
             ORDER BY d.created_at DESC 
             LIMIT 50
         `);
+        
+        const withdrawals = await pool.query(`
+            SELECT w.*, u.username, u.telegram_id
+            FROM withdrawals w 
+            JOIN users u ON w.user_id = u.id 
+            ORDER BY w.created_at DESC 
+            LIMIT 50
+        `);
 
         res.json({
             totalUsers: totalUsers.rows[0].count,
             totalDeposits: totalDeposits.rows[0].sum || 0,
             totalCommission: totalCommission.rows[0].commission || 0,
             users: users.rows,
-            deposits: deposits.rows
+            deposits: deposits.rows,
+            withdrawals: withdrawals.rows
         });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -614,6 +627,95 @@ app.post('/api/admin/reject-deposit', adminAuthMiddleware, async (req, res) => {
         if (bot && deposit.telegram_id) {
             const userMsg = `❌ *የዲፖዚት ጥያቄዎ ውድቅ ተደርጓል*\n\nመጠን: ${deposit.amount} ETB\nትራንዛክሽን ID: ${deposit.confirmation_code}\n${reason ? `*ምክንያት:* ${reason}` : ''}\n\nእባክዎ መረጃውን አረጋግጠው ድጋሚ ይሞክሩ ወይም ለአድሚን ያሳውቁ።`;
             bot.sendMessage(deposit.telegram_id, userMsg, { parse_mode: 'Markdown' }).catch(err => console.error('Bot notify error:', err));
+        }
+
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/admin/approve-withdrawal', adminAuthMiddleware, async (req, res) => {
+    const { withdrawalId } = req.body;
+    try {
+        if (!req.user.isAdmin) {
+            const userResult = await pool.query('SELECT telegram_id FROM users WHERE id = $1', [req.user.userId]);
+            const telegramId = userResult.rows[0]?.telegram_id;
+            
+            if (!telegramId || telegramId.toString() !== ADMIN_CHAT_ID.toString()) {
+                return res.status(403).json({ error: 'Access denied' });
+            }
+        }
+
+        const withdrawalResult = await pool.query(`
+            SELECT w.*, u.telegram_id, u.username 
+            FROM withdrawals w 
+            JOIN users u ON w.user_id = u.id 
+            WHERE w.id = $1
+        `, [withdrawalId]);
+        
+        if (withdrawalResult.rows.length === 0) return res.status(404).json({ error: 'Withdrawal not found' });
+        const withdrawal = withdrawalResult.rows[0];
+        
+        if (withdrawal.status !== 'pending') return res.status(400).json({ error: 'Already processed' });
+
+        await pool.query("UPDATE withdrawals SET status = 'completed', processed_at = NOW() WHERE id = $1", [withdrawalId]);
+        
+        await pool.query(
+            `UPDATE transactions SET type = 'withdrawal' WHERE user_id = $1 AND type = 'withdrawal_pending' AND amount = $2`,
+            [withdrawal.user_id, withdrawal.amount]
+        );
+        
+        if (bot && withdrawal.telegram_id) {
+            const userMsg = `✅ *የዊዝድሮው ጥያቄዎ ተጠናቅቋል!*\n\nመጠን: ${withdrawal.amount} ETB\nወደ: ${withdrawal.phone_number}\nዝርዝር: ${withdrawal.account_name}\n\nገንዘብዎ ተልኳል። አመሰግናለሁ!`;
+            bot.sendMessage(withdrawal.telegram_id, userMsg, { parse_mode: 'Markdown' }).catch(err => console.error('Bot notify error:', err));
+        }
+
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/admin/reject-withdrawal', adminAuthMiddleware, async (req, res) => {
+    const { withdrawalId, reason } = req.body;
+    try {
+        if (!req.user.isAdmin) {
+            const userResult = await pool.query('SELECT telegram_id FROM users WHERE id = $1', [req.user.userId]);
+            const telegramId = userResult.rows[0]?.telegram_id;
+            
+            if (!telegramId || telegramId.toString() !== ADMIN_CHAT_ID.toString()) {
+                return res.status(403).json({ error: 'Access denied' });
+            }
+        }
+
+        const withdrawalResult = await pool.query(`
+            SELECT w.*, u.telegram_id, u.username 
+            FROM withdrawals w 
+            JOIN users u ON w.user_id = u.id 
+            WHERE w.id = $1
+        `, [withdrawalId]);
+        
+        if (withdrawalResult.rows.length === 0) return res.status(404).json({ error: 'Withdrawal not found' });
+        const withdrawal = withdrawalResult.rows[0];
+        
+        if (withdrawal.status !== 'pending') return res.status(400).json({ error: 'Already processed' });
+
+        await pool.query("UPDATE withdrawals SET status = 'rejected', processed_at = NOW() WHERE id = $1", [withdrawalId]);
+        
+        await pool.query(
+            `UPDATE wallets SET win_balance = win_balance + $1 WHERE user_id = $2`,
+            [withdrawal.amount, withdrawal.user_id]
+        );
+        
+        await pool.query(
+            `DELETE FROM transactions WHERE user_id = $1 AND type = 'withdrawal_pending' AND amount = $2`,
+            [withdrawal.user_id, withdrawal.amount]
+        );
+        
+        if (bot && withdrawal.telegram_id) {
+            const userMsg = `❌ *የዊዝድሮው ጥያቄዎ ውድቅ ተደርጓል*\n\nመጠን: ${withdrawal.amount} ETB\n${reason ? `*ምክንያት:* ${reason}` : ''}\n\nገንዘብዎ ወደ ሂሳብዎ ተመልሷል።`;
+            bot.sendMessage(withdrawal.telegram_id, userMsg, { parse_mode: 'Markdown' }).catch(err => console.error('Bot notify error:', err));
         }
 
         res.json({ success: true });
