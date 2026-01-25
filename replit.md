@@ -53,6 +53,10 @@ This app is designed to work on both Render and Replit:
 The server runs on port 5000 and serves static files from the `/public` directory.
 
 ## Recent Changes
+- 2026-01-25: Fixed withdrawal logic - now checks total deposited amount (>= 100 ETB) instead of single deposit.
+- 2026-01-25: Fixed withdrawal win check - now uses winners table instead of game_participants.
+- 2026-01-25: Added pending withdrawal request system - admin must approve before funds are released.
+- 2026-01-25: Added withdrawal management section to admin panel.
 - 2026-01-25: Added 10% deposit bonus (non-withdrawable) for all deposits.
 - 2026-01-25: Updated landing page layout and reduced signup bonus to 10 ETB.
 - 2026-01-25: Updated bot link to @RoyalBingoVV2_bot and added news channel link.
