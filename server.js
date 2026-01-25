@@ -893,6 +893,11 @@ wss.on('connection', (ws) => {
                 prizePool: prize
             }));
         } else if (data.type === 'select_card') {
+            if (gameStatus === 'playing') {
+                ws.send(JSON.stringify({ type: 'error', message: 'ጨዋታ እየተካሄደ ነው! እባክዎ ጨዋታው እስኪያልቅ ይጠብቁ።' }));
+                return;
+            }
+            
             const stake = 10;
             // Check if card is already taken
             const isTaken = Object.values(players).some(p => p.selectedCardId === data.cardId);

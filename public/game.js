@@ -264,17 +264,47 @@ function showSelectionScreen() {
     generateCardGrid();
 }
 
+let currentGameStatus = 'selection';
+
 function updateTimerDisplay(timeLeft, status) {
     const timerDisplay = document.querySelector('.time-value');
     if (!timerDisplay) return;
 
+    currentGameStatus = status;
     timerDisplay.textContent = timeLeft + 's';
     
     if (status === 'playing') {
         timerDisplay.style.background = '#888';
         timerDisplay.textContent = 'Playing';
+        disableCardSelection(true);
     } else {
         timerDisplay.style.background = '#ff4757';
+        disableCardSelection(false);
+    }
+}
+
+function disableCardSelection(disable) {
+    const cardItems = document.querySelectorAll('.card-item');
+    const selectionInstruction = document.querySelector('.selection-instruction');
+    
+    cardItems.forEach(item => {
+        if (disable && !item.classList.contains('selected')) {
+            item.style.pointerEvents = 'none';
+            item.style.opacity = '0.5';
+        } else if (!disable && !item.classList.contains('taken')) {
+            item.style.pointerEvents = 'auto';
+            item.style.opacity = '1';
+        }
+    });
+    
+    if (selectionInstruction) {
+        if (disable) {
+            selectionInstruction.textContent = 'ጨዋታ እየተካሄደ ነው - እባክዎ ይጠብቁ...';
+            selectionInstruction.style.color = '#ff4757';
+        } else {
+            selectionInstruction.textContent = 'ካርድ ቁጥር ይምረጡ (1-100)';
+            selectionInstruction.style.color = '';
+        }
     }
 }
 
@@ -453,6 +483,11 @@ function modernAlert(message, title = 'Chewatabingo') {
 }
 
 function showCardPreview(cardId) {
+    if (currentGameStatus === 'playing') {
+        modernAlert('ጨዋታ እየተካሄደ ነው! እባክዎ ጨዋታው እስኪያልቅ ይጠብቁ።', 'እባክዎ ይጠብቁ');
+        return;
+    }
+    
     const modal = document.getElementById('card-preview-modal');
     const title = document.getElementById('preview-card-title');
     const grid = document.getElementById('preview-card-grid');
