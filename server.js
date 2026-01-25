@@ -74,12 +74,37 @@ if (TELEGRAM_BOT_TOKEN) {
                             text: "🎮 ጨዋታውን ጀምር (Open App)",
                             web_app: { url: currentDomain }
                         }
+                    ],
+                    [
+                        { text: "🌐 Website", url: currentDomain },
+                        { text: "❓ Help", callback_data: 'help_patterns' }
+                    ],
+                    [
+                        { text: "☎️ Support", url: "https://t.me/royalsup1" }
                     ]
                 ]
             }
         };
 
         bot.sendMessage(chatId, welcomeMessage, opts).catch(err => console.error('[BOT] Start message failed:', err));
+    });
+
+    // Handle Callback Queries
+    bot.on('callback_query', (query) => {
+        const chatId = query.message.chat.id;
+        const data = query.data;
+
+        if (data === 'help_patterns') {
+            const helpText = `📖 *የማሸነፊያ መንገዶች (Winning Patterns)*\n\n` +
+                `1. *Horizontal*: በአንድ ረድፍ ላይ ያሉ 5 ቁጥሮች ሲሞሉ\n` +
+                `2. *Vertical*: በአንድ አምድ ላይ ያሉ 5 ቁጥሮች ሲሞሉ\n` +
+                `3. *Diagonal*: ከዳር እስከ ዳር ባለው መስመር 5 ቁጥሮች ሲሞሉ\n` +
+                `4. *Four Corners*: አራቱ የካርዱ ማዕዘኖች ሲሞሉ\n\n` +
+                `እነዚህ ሲሞሉ BINGO የሚለውን ቁልፍ በመጫን ያሸንፉ!`;
+            
+            bot.sendMessage(chatId, helpText, { parse_mode: 'Markdown' });
+            bot.answerCallbackQuery(query.id);
+        }
     });
 
     // Endpoint for Telegram Webhook
