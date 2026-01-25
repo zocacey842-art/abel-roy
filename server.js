@@ -463,13 +463,51 @@ app.post('/api/admin/approve-deposit', adminAuthMiddleware, async (req, res) => 
             }
         }
 
-        const deposit = await pool.query('SELECT * FROM deposits WHERE id = $1', [depositId]);
-        if (deposit.rows.length === 0) return res.status(404).json({ error: 'Deposit not found' });
-        if (deposit.rows[0].status !== 'pending') return res.status(400).json({ error: 'Already processed' });
+        const depositResult = await pool.query('SELECT d.*, u.telegram_id FROM deposits d JOIN users u ON d.user_id = u.id WHERE d.id = $1', [depositId]);
+        if (depositResult.rows.length === 0) return res.status(404).json({ error: 'Deposit not found' });
+        const deposit = depositResult.rows[0];
+        
+        if (deposit.status !== 'pending') return res.status(400).json({ error: 'Already processed' });
 
         await pool.query("UPDATE deposits SET status = 'completed' WHERE id = $1", [depositId]);
-        await Wallet.deposit(deposit.rows[0].user_id, deposit.rows[0].amount, `Deposit Approved: ${deposit.rows[0].confirmation_code}`);
+        await Wallet.deposit(deposit.user_id, deposit.amount, `Deposit Approved: ${deposit.confirmation_code}`);
         
+        if (bot && deposit.telegram_id) {
+            const userMsg = `✅ *የዲፖዚት ጥያቄዎ ተቀባይነት አግኝቷል!*\n\nመጠን: ${deposit.amount} ETB\nትራንዛክሽን ID: ${deposit.confirmation_code}\n\nሒሳብዎ ላይ ተጨምሯል። መልካም ጨዋታ!`;
+            bot.sendMessage(deposit.telegram_id, userMsg, { parse_mode: 'Markdown' }).catch(err => console.error('Bot notify error:', err));
+        }
+
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/admin/reject-deposit', adminAuthMiddleware, async (req, res) => {
+    const { depositId, reason } = req.body;
+    try {
+        if (!req.user.isAdmin) {
+            const userResult = await pool.query('SELECT telegram_id FROM users WHERE id = $1', [req.user.userId]);
+            const telegramId = userResult.rows[0]?.telegram_id;
+            
+            if (!telegramId || telegramId.toString() !== ADMIN_CHAT_ID.toString()) {
+                return res.status(403).json({ error: 'Access denied' });
+            }
+        }
+
+        const depositResult = await pool.query('SELECT d.*, u.telegram_id FROM deposits d JOIN users u ON d.user_id = u.id WHERE d.id = $1', [depositId]);
+        if (depositResult.rows.length === 0) return res.status(404).json({ error: 'Deposit not found' });
+        const deposit = depositResult.rows[0];
+        
+        if (deposit.status !== 'pending') return res.status(400).json({ error: 'Already processed' });
+
+        await pool.query("UPDATE deposits SET status = 'rejected' WHERE id = $1", [depositId]);
+        
+        if (bot && deposit.telegram_id) {
+            const userMsg = `❌ *የዲፖዚት ጥያቄዎ ውድቅ ተደርጓል*\n\nመጠን: ${deposit.amount} ETB\nትራንዛክሽን ID: ${deposit.confirmation_code}\n${reason ? `*ምክንያት:* ${reason}` : ''}\n\nእባክዎ መረጃውን አረጋግጠው ድጋሚ ይሞክሩ ወይም ለአድሚን ያሳውቁ።`;
+            bot.sendMessage(deposit.telegram_id, userMsg, { parse_mode: 'Markdown' }).catch(err => console.error('Bot notify error:', err));
+        }
+
         res.json({ success: true });
     } catch (err) {
         res.status(500).json({ error: err.message });

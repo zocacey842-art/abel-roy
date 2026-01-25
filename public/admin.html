@@ -291,9 +291,14 @@
                     <tr>
                         <td><strong>${d.username}</strong></td>
                         <td style="font-weight: 600">${parseFloat(d.amount).toFixed(2)} ETB</td>
-                        <td><span class="badge ${d.status === 'pending' ? 'badge-pending' : 'badge-success'}">${d.status.toUpperCase()}</span></td>
+                        <td><span class="badge ${d.status === 'pending' ? 'badge-pending' : (d.status === 'completed' ? 'badge-success' : 'badge-danger')}">${d.status.toUpperCase()}</span></td>
                         <td>
-                            ${d.status === 'pending' ? `<button class="btn-action btn-primary" onclick="approveDeposit(${d.id})">✅ ፍቀድ</button>` : '<span style="color: var(--color-text-dim)">ተጠናቅቋል</span>'}
+                            ${d.status === 'pending' ? `
+                                <div style="display: flex; gap: 5px;">
+                                    <button class="btn-action btn-primary" onclick="approveDeposit(${d.id})">✅ ፍቀድ</button>
+                                    <button class="btn-action btn-danger" onclick="rejectDeposit(${d.id})">❌ ሪጄክት</button>
+                                </div>
+                            ` : '<span style="color: var(--color-text-dim)">ተጠናቅቋል</span>'}
                         </td>
                     </tr>
                 `).join('');
@@ -340,6 +345,23 @@
             });
             if (res.ok) fetchAdminData();
             else alert('ጥያቄውን መፍቀድ አልተቻለም');
+        }
+
+        async function rejectDeposit(depositId) {
+            const reason = prompt('ጥያቄውን ውድቅ ለማድረግ ምክንያቱን ያስገቡ (አማራጭ):');
+            if (reason === null) return;
+            
+            let token = localStorage.getItem('bingo_admin_token') || localStorage.getItem('bingo_token');
+            const res = await fetch('/api/admin/reject-deposit', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ depositId, reason })
+            });
+            if (res.ok) fetchAdminData();
+            else alert('ጥያቄውን ውድቅ ማድረግ አልተቻለም');
         }
 
         fetchAdminData();
