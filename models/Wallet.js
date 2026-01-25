@@ -60,77 +60,76 @@ class Wallet {
     }
 
     static async withdraw(userId, amount, description = 'Withdrawal') {
-        const client = await db.pool.connect();
+    const client = await db.pool.connect();
+    
+    try {
+        await client.query('BEGIN');
         
-        try {
-            await client.query('BEGIN');
-            
-            // Check constraints: Balance < 100, at least one 100 ETB deposit, and at least 2 wins
-            const balanceResult = await client.query(
-                `SELECT deposit_balance, win_balance FROM wallets WHERE user_id = $1 FOR UPDATE`,
-                [userId]
-            );
-            
-            const depositBefore = parseFloat(balanceResult.rows[0]?.deposit_balance || 0);
-            const winBefore = parseFloat(balanceResult.rows[0]?.win_balance || 0);
-            const totalBefore = depositBefore + winBefore;
-            
-            if (totalBefore < 100) {
-                await client.query('ROLLBACK');
-                return { success: false, error: 'Minimum balance for withdrawal is 100 ETB' };
-            }
-
-            // Only win_balance is withdrawable
-            if (winBefore < amount) {
-                await client.query('ROLLBACK');
-                return { success: false, error: 'Insufficient withdrawable balance (Only game winnings can be withdrawn)' };
-            }
-
-            // Check for at least one deposit of 100 ETB or more
-            const depositCheck = await client.query(
-                `SELECT COUNT(*) FROM transactions WHERE user_id = $1 AND type = 'deposit' AND amount >= 100`,
-                [userId]
-            );
-            if (parseInt(depositCheck.rows[0].count) < 1) {
-                await client.query('ROLLBACK');
-                return { success: false, error: 'You must have at least one deposit of 100 ETB or more to withdraw' };
-            }
-
-            // Check for at least 2 wins
-            const winCheck = await client.query(
-                `SELECT COUNT(*) FROM game_participants WHERE user_id = $1 AND is_winner = true`,
-                [userId]
-            );
-            if (parseInt(winCheck.rows[0].count) < 2) {
-                await client.query('ROLLBACK');
-                return { success: false, error: 'You must have at least 2 game wins to withdraw' };
-            }
-            
-            const winAfter = winBefore - parseFloat(amount);
-            const totalAfter = depositBefore + winAfter;
-            
-            await client.query(
-                `UPDATE wallets SET win_balance = $1, updated_at = CURRENT_TIMESTAMP WHERE user_id = $2`,
-                [winAfter, userId]
-            );
-            
-            await client.query(
-                `INSERT INTO transactions (user_id, type, amount, balance_before, balance_after, description)
-                 VALUES ($1, 'withdrawal', $2, $3, $4, $5)`,
-                [userId, amount, totalBefore, totalAfter, description]
-            );
-            
-            await client.query('COMMIT');
-            
-            return { success: true, balance: totalAfter, deposit: depositBefore, win: winAfter };
-        } catch (err) {
+        // የሂሳብ መጠን መረጃን ማምጣት
+        const balanceResult = await client.query(
+            `SELECT deposit_balance, win_balance FROM wallets WHERE user_id = $1 FOR UPDATE`,
+            [userId]
+        );
+        
+        const depositBefore = parseFloat(balanceResult.rows[0]?.deposit_balance || 0);
+        const winBefore = parseFloat(balanceResult.rows[0]?.win_balance || 0);
+        const totalBefore = depositBefore + winBefore;
+        
+        // 1. ዝቅተኛ የሂሳብ መጠን ቼክ (100 ብር)
+        if (totalBefore < 100) {
             await client.query('ROLLBACK');
-            throw err;
-        } finally {
-            client.release();
+            return { success: false, error: 'ገንዘብ ለማውጣት ቢያንስ 100 ብር በሂሳብዎ ላይ ሊኖርዎት ይገባል!' };
         }
-    }
 
+        // 2. ማውጣት የሚቻለው ከማሸነፊያ (Win Balance) ላይ ብቻ መሆኑን ማረጋገጥ
+        if (winBefore < amount) {
+            await client.query('ROLLBACK');
+            return { success: false, error: 'ሊወጣ የሚችል በቂ የማሸነፊያ (Win Balance) የለዎትም!' };
+        }
+
+        // 3. ቢያንስ 100 ብር ዲፖዚት ማድረጋቸውን ማረጋገጥ
+        const depositCheck = await client.query(
+            `SELECT COUNT(*) FROM transactions WHERE user_id = $1 AND type = 'deposit' AND amount >= 100`,
+            [userId]
+        );
+        if (parseInt(depositCheck.rows[0].count) < 1) {
+            await client.query('ROLLBACK');
+            return { success: false, error: 'ገንዘብ ለማውጣት ቢያንስ አንድ ጊዜ 100 ብር እና ከዚያ በላይ ዲፖዚት ማድረግ ይኖርብዎታል!' };
+        }
+
+        // 4. ቢያንስ 2 ጊዜ ማሸነፋቸውን ማረጋገጥ
+        const winCheck = await client.query(
+            `SELECT COUNT(*) FROM game_participants WHERE user_id = $1 AND is_winner = true`,
+            [userId]
+        );
+        if (parseInt(winCheck.rows[0].count) < 2) {
+            await client.query('ROLLBACK');
+            return { success: false, error: 'ገንዘብ ለማውጣት ቢያንስ 2 ጊዜ ማሸነፍ ይኖርብዎታል!' };
+        }
+        
+        // ዊዝድሮው ማካሄድ
+        const winAfter = winBefore - parseFloat(amount);
+        await client.query(
+            `UPDATE wallets SET win_balance = $1, updated_at = CURRENT_TIMESTAMP WHERE user_id = $2`,
+            [winAfter, userId]
+        );
+        
+        // ትራንዛክሽን መመዝገብ
+        await client.query(
+            `INSERT INTO transactions (user_id, type, amount, balance_before, balance_after, description)
+             VALUES ($1, 'withdrawal', $2, $3, $4, $5)`,
+            [userId, amount, totalBefore, depositBefore + winAfter, description]
+        );
+        
+        await client.query('COMMIT');
+        return { success: true };
+    } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+    } finally {
+        client.release();
+    }
+}
     static async stake(userId, amount, gameId) {
         const client = await db.pool.connect();
         
