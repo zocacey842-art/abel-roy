@@ -93,7 +93,9 @@ app.post('/api/admin/verify-id', async (req, res) => {
     const { chatId } = req.body;
     if (!chatId) return res.status(400).json({ error: 'Chat ID required' });
 
-    if (chatId.toString() === ADMIN_CHAT_ID.toString()) {
+    console.log(`[ADMIN] Login attempt for ID: ${chatId}, Expected: ${ADMIN_CHAT_ID}`);
+
+    if (chatId.toString().trim() === ADMIN_CHAT_ID.toString().trim()) {
         const token = jwt.sign({ isAdmin: true }, JWT_SECRET, { expiresIn: '1h' });
         res.json({ success: true, token });
     } else {
