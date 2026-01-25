@@ -300,7 +300,7 @@ app.post('/api/verify-registration', async (req, res) => {
         // Check wallet
         const walletCheck = await pool.query('SELECT * FROM wallets WHERE user_id = $1', [user.id]);
         if (walletCheck.rows.length === 0) {
-            await pool.query('INSERT INTO wallets (user_id, deposit_balance) VALUES ($1, 20.00)', [user.id]);
+            await pool.query('INSERT INTO wallets (user_id, deposit_balance) VALUES ($1, 10.00)', [user.id]);
         }
 
         // Process referral bonus - give referrer 2 ETB
@@ -344,7 +344,7 @@ app.post('/api/verify-registration', async (req, res) => {
         // Notify user via Telegram
         if (bot) {
             const currentDomain = MINI_APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://royal-bingo.onrender.com");
-            const welcomeMessage = `እንኳን ደስ አሎት! 🎉\n\nምዝገባዎ በተሳካ ሁኔታ ተጠናቋል፡፡ የ 20 ብር የመመዝገቢያ ቦነስ ወደ አካውንትዎ ገብቷል፡፡ አሁን ተወዳጁን ሮያል ቢንጎን መጫወት ይችላሉ፡፡\n\nመልካም እድል! 👑`;
+            const welcomeMessage = `እንኳን ደስ አሎት! 🎉\n\nምዝገባዎ በተሳካ ሁኔታ ተጠናቋል፡፡ የ 10 ብር የመመዝገቢያ ቦነስ ወደ አካውንትዎ ገብቷል፡፡ አሁን ተወዳጁን ሮያል ቢንጎን መጫወት ይችላሉ፡፡\n\nመልካም እድል! 👑`;
             
             const opts = {
                 reply_markup: {
@@ -376,7 +376,7 @@ app.post('/api/register', async (req, res) => {
             [username, hashedPassword, phone]
         );
         const userId = result.rows[0].id;
-        await pool.query('INSERT INTO wallets (user_id, deposit_balance) VALUES ($1, 20.00)', [userId]);
+        await pool.query('INSERT INTO wallets (user_id, deposit_balance) VALUES ($1, 10.00)', [userId]);
         res.json({ success: true });
     } catch (err) {
         res.status(500).json({ error: err.message });
