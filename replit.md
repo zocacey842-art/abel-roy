@@ -1,67 +1,68 @@
-# Royal Bingo
+# Royal Bingo - Telegram Bingo Game
 
 ## Overview
-Royal Bingo is a Telegram-based bingo game application with web frontend. Users can play bingo games with stake-based wagering, manage wallets, and interact via Telegram bot.
+Royal Bingo is a web-based Bingo game integrated with Telegram. Users can play Bingo games, manage their wallets (deposits/withdrawals), and interact through a Telegram bot.
 
-## Project Structure
+## Project Architecture
+
+### Tech Stack
+- **Backend**: Node.js with Express.js
+- **Database**: PostgreSQL (via Replit's built-in database)
+- **Real-time**: WebSocket (ws library) for live game updates
+- **Optional Cache**: Redis/Upstash for real-time game state (falls back to memory if not configured)
+- **Telegram Integration**: node-telegram-bot-api for bot functionality
+
+### Project Structure
 ```
-/
-├── server.js           # Main Express server with WebSocket support
-├── package.json        # Node.js dependencies
+├── server.js           # Main Express server with all API routes and WebSocket handling
 ├── db/
-│   └── database.js     # PostgreSQL database connection and schema
+│   └── database.js     # PostgreSQL connection pool and schema initialization
 ├── models/
-│   ├── User.js         # User model
-│   ├── Wallet.js       # Wallet model  
-│   └── Game.js         # Game model
-├── data/
-│   └── cards.js        # Bingo cards data and validation
+│   ├── User.js         # User model and authentication logic
+│   ├── Wallet.js       # Wallet operations (deposits, withdrawals, balance)
+│   └── Game.js         # Game logic and participant management
 ├── public/
-│   ├── index.html      # Main frontend
-│   ├── admin.html      # Admin panel
-│   ├── style.css       # Styles
-│   ├── card.js         # Frontend card logic
-│   └── game.js         # Frontend game logic
-└── uploads/            # User uploads directory
+│   ├── index.html      # Main frontend UI
+│   ├── admin.html      # Admin dashboard
+│   ├── style.css       # Application styles
+│   ├── game.js         # Frontend game logic
+│   ├── card.js         # Bingo card generation/rendering
+│   └── images/         # Static images
+└── data/
+    └── cards.js        # Bingo card validation logic
 ```
 
-## Technologies
-- **Backend**: Node.js with Express
-- **Database**: PostgreSQL (via pg package)
-- **Real-time**: WebSocket (ws package)
-- **Cache**: Redis (optional, for real-time game state)
-- **Bot**: Telegram Bot API (node-telegram-bot-api)
-- **Auth**: JWT tokens, bcrypt for password hashing
+### Database Schema
+Tables managed via `db/database.js`:
+- `users` - User accounts with Telegram integration
+- `wallets` - User balances (deposit and win balance)
+- `transactions` - All financial transactions
+- `games` - Active and completed games
+- `game_participants` - Players in each game
+- `deposits` - Pending and confirmed deposits
+- `withdrawals` - Pending and processed withdrawals
+- `winners` - Game winners history
+- `admin_users` - Admin accounts
+- `referrals` - Referral bonuses tracking
 
-## Environment Variables
-- `DATABASE_URL` - PostgreSQL connection string (required, auto-configured on Replit/Render)
-- `TELEGRAM_BOT_TOKEN` - Telegram bot token (optional, for bot functionality)
-- `ADMIN_CHAT_ID` - Telegram chat ID for admin user (required for admin access)
-- `JWT_SECRET` - Secret for JWT tokens (required, auto-generated on Render)
-- `REDIS_URL` - Redis connection URL (optional, falls back to in-memory)
-- `RENDER_EXTERNAL_URL` - Auto-provided by Render for production URL
-- `MINI_APP_URL` - Custom URL override (optional)
-- `REPLIT_DEV_DOMAIN` - Auto-provided by Replit for development URL
-
-## Deployment Compatibility
-This app is designed to work on both Render and Replit:
-- Server binds to `0.0.0.0:5000` for both platforms
-- URL detection: RENDER_EXTERNAL_URL > MINI_APP_URL > REPLIT_DEV_DOMAIN > fallback
-- WebSocket support enabled for real-time gameplay
+### Environment Variables
+- `DATABASE_URL` - PostgreSQL connection string (automatically configured)
+- `TELEGRAM_BOT_TOKEN` - (Optional) Telegram bot token for bot features
+- `JWT_SECRET` - Secret for JWT token generation (has default fallback)
+- `REDIS_URL` - (Optional) Redis URL for real-time game state caching
+- `ADMIN_CHAT_ID` - (Optional) Telegram chat ID for admin notifications
 
 ## Running the Application
-The server runs on port 5000 and serves static files from the `/public` directory.
+The application runs on port 5000 and binds to 0.0.0.0 for Replit compatibility.
+
+**Development**: `npm start`
+**Production**: `node server.js`
 
 ## Recent Changes
-- 2026-01-26: Game requires minimum 2 players - if only 1 player, stake is refunded and game resets.
-- 2026-01-26: Card changes don't charge extra - if player already paid, they can switch cards freely.
-- 2026-01-26: Updated leaderboard with daily, weekly, monthly period tabs instead of winners/earners tabs.
-- 2026-01-26: Moved leaderboard access to sidebar menu.
-- 2026-01-25: Added leaderboard screen with tabs for top winners and top earners.
-- 2026-01-25: Fixed withdrawal logic - now checks total deposited amount (>= 100 ETB) instead of single deposit.
-- 2026-01-25: Fixed withdrawal win check - now uses winners table instead of game_participants.
-- 2026-01-25: Added pending withdrawal request system - admin must approve before funds are released.
-- 2026-01-25: Added withdrawal management section to admin panel.
-- 2026-01-25: Added 10% deposit bonus (non-withdrawable) for all deposits.
-- 2026-01-25: Updated landing page layout and reduced signup bonus to 10 ETB.
-- 2026-01-25: Updated bot link to @RoyalBingoVV2_bot and added news channel link.
+- January 2026: Initial import and setup for Replit environment
+- Configured PostgreSQL database
+- Set up deployment configuration
+
+## User Preferences
+- Language: Amharic (Ethiopian) with English labels
+- Currency: ETB (Ethiopian Birr)
