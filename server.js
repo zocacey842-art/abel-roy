@@ -103,12 +103,7 @@ if (TELEGRAM_BOT_TOKEN) {
                 `5. *Cross*: ከ "FREE" አጠገብ ያሉ አራት ቁጥሮች በመስቀለኛ ቅርጽ ሲሞሉ\n\n` +
                 `እነዚህ ሲሞሉ BINGO የሚለውን ቁልፍ በመጫን ያሸንፉ!`;
             
-            const imagePath = path.join(__dirname, 'public/images/bingo_patterns.png');
-            if (fs.existsSync(imagePath)) {
-                bot.sendPhoto(chatId, imagePath, { caption: helpText, parse_mode: 'Markdown' });
-            } else {
-                bot.sendMessage(chatId, helpText, { parse_mode: 'Markdown' });
-            }
+            bot.sendMessage(chatId, helpText, { parse_mode: 'Markdown' });
             bot.answerCallbackQuery(query.id);
         }
     });
