@@ -451,17 +451,24 @@ app.get('/api/leaderboard', async (req, res) => {
     try {
         const period = req.query.period || 'daily';
         
+        // Ethiopia is UTC+3. 
+        // 6:00 AM Ethiopia time (ቅዳሴ/ስድስት ሰዓት) is 3:00 AM UTC.
+        // However, the user said "ለሊት ስድሰአት" which usually means 12:00 AM (Midnight) in local 12h format 
+        // or specifically 6:00 local hours past sunset.
+        // In Ethiopia, "ስድስት ሰዓት" (6:00) at night is Midnight (00:00).
+        // To handle this in SQL, we offset the current time by 3 hours for UTC+3.
+        
         let dateFilter = '';
         if (period === 'daily') {
-            // Reset every 24 hours (today's data)
-            dateFilter = "AND w.created_at >= CURRENT_DATE";
+            // Reset at Midnight Ethiopia time (UTC+3)
+            // We subtract 3 hours from UTC to align with Ethiopian start of day
+            dateFilter = "AND w.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Africa/Addis_Ababa' >= CURRENT_DATE AT TIME ZONE 'Africa/Addis_Ababa'";
         } else if (period === 'weekly') {
-            // Reset every week (starting from Monday)
-            // In Postgres, date_trunc('week', now()) returns Monday of the current week
-            dateFilter = "AND w.created_at >= date_trunc('week', now())";
+            // Reset every Monday Midnight Ethiopia time
+            dateFilter = "AND w.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Africa/Addis_Ababa' >= date_trunc('week', now() AT TIME ZONE 'Africa/Addis_Ababa')";
         } else if (period === 'monthly') {
-            // Reset every month (starting from 1st of the month)
-            dateFilter = "AND w.created_at >= date_trunc('month', now())";
+            // Reset 1st of month Midnight Ethiopia time
+            dateFilter = "AND w.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Africa/Addis_Ababa' >= date_trunc('month', now() AT TIME ZONE 'Africa/Addis_Ababa')";
         }
         
         const leaderboard = await pool.query(`
