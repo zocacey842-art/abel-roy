@@ -453,11 +453,15 @@ app.get('/api/leaderboard', async (req, res) => {
         
         let dateFilter = '';
         if (period === 'daily') {
+            // Reset every 24 hours (today's data)
             dateFilter = "AND w.created_at >= CURRENT_DATE";
         } else if (period === 'weekly') {
-            dateFilter = "AND w.created_at >= CURRENT_DATE - INTERVAL '7 days'";
+            // Reset every week (starting from Monday)
+            // In Postgres, date_trunc('week', now()) returns Monday of the current week
+            dateFilter = "AND w.created_at >= date_trunc('week', now())";
         } else if (period === 'monthly') {
-            dateFilter = "AND w.created_at >= CURRENT_DATE - INTERVAL '30 days'";
+            // Reset every month (starting from 1st of the month)
+            dateFilter = "AND w.created_at >= date_trunc('month', now())";
         }
         
         const leaderboard = await pool.query(`
@@ -467,8 +471,8 @@ app.get('/api/leaderboard', async (req, res) => {
                 COUNT(w.id) as total_wins,
                 COALESCE(SUM(w.prize_amount), 0) as total_earnings
             FROM users u
-            LEFT JOIN winners w ON u.id = w.user_id ${dateFilter.replace('AND', 'AND')}
-            WHERE w.id IS NOT NULL ${dateFilter}
+            JOIN winners w ON u.id = w.user_id
+            WHERE 1=1 ${dateFilter}
             GROUP BY u.id, u.username
             HAVING COUNT(w.id) > 0
             ORDER BY total_earnings DESC, total_wins DESC
