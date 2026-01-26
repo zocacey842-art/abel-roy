@@ -196,6 +196,47 @@ class Wallet {
         }
     }
 
+    static async refundStake(userId, amount) {
+        const client = await db.pool.connect();
+        
+        try {
+            await client.query('BEGIN');
+            
+            const balanceResult = await client.query(
+                `SELECT deposit_balance, win_balance FROM wallets WHERE user_id = $1 FOR UPDATE`,
+                [userId]
+            );
+            
+            let depositBefore = parseFloat(balanceResult.rows[0]?.deposit_balance || 0);
+            let winBefore = parseFloat(balanceResult.rows[0]?.win_balance || 0);
+            const totalBefore = depositBefore + winBefore;
+            
+            // Refund to deposit_balance
+            const depositAfter = depositBefore + parseFloat(amount);
+            const totalAfter = depositAfter + winBefore;
+            
+            await client.query(
+                `UPDATE wallets SET deposit_balance = $1, updated_at = CURRENT_TIMESTAMP WHERE user_id = $2`,
+                [depositAfter, userId]
+            );
+            
+            await client.query(
+                `INSERT INTO transactions (user_id, type, amount, balance_before, balance_after, description)
+                 VALUES ($1, 'refund', $2, $3, $4, $5)`,
+                [userId, amount, totalBefore, totalAfter, 'Stake refund - not enough players']
+            );
+            
+            await client.query('COMMIT');
+            
+            return { success: true, balance: totalAfter };
+        } catch (err) {
+            await client.query('ROLLBACK');
+            throw err;
+        } finally {
+            client.release();
+        }
+    }
+
     static async win(userId, amount, gameId) {
         const client = await db.pool.connect();
         

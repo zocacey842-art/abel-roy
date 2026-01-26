@@ -854,6 +854,15 @@ function initWebSocket() {
             showSelectionScreen();
             selectedCardId = null;
             modernAlert('Game finished! Select your card for the next round.', 'Round Over');
+        } else if (data.type === 'game_cancelled') {
+            hideCheckingOverlay();
+            showSelectionScreen();
+            selectedCardId = null;
+            updateTakenCards([]);
+            modernAlert(data.message || 'ጨዋታ ተሰርዟል', 'ማስታወቂያ');
+        } else if (data.type === 'stake_refunded') {
+            modernAlert(data.message || `${data.amount} ብር ተመልሷል!`, 'ገንዘብ ተመልሷል');
+            loadWallet();
         } else if (data.type === 'bingo_checking') {
             showCheckingOverlay(data.username);
         } else if (data.type === 'bingo_check_failed') {

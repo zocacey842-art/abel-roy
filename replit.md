@@ -53,6 +53,8 @@ This app is designed to work on both Render and Replit:
 The server runs on port 5000 and serves static files from the `/public` directory.
 
 ## Recent Changes
+- 2026-01-26: Game requires minimum 2 players - if only 1 player, stake is refunded and game resets.
+- 2026-01-26: Card changes don't charge extra - if player already paid, they can switch cards freely.
 - 2026-01-26: Updated leaderboard with daily, weekly, monthly period tabs instead of winners/earners tabs.
 - 2026-01-26: Moved leaderboard access to sidebar menu.
 - 2026-01-25: Added leaderboard screen with tabs for top winners and top earners.

@@ -938,16 +938,16 @@ function startGlobalTimer() {
             
             if (selectionTimeLeft <= 0) {
                 const playerArray = Object.values(players);
-                const anySelection = playerArray.some(p => p.selectedCardId);
+                const playersWithCards = playerArray.filter(p => p.selectedCardId);
+                const totalPlayers = playersWithCards.length;
                 
-                if (anySelection) {
+                if (totalPlayers >= 2) {
+                    // 2+ players - start the game
                     gameStatus = 'playing';
                     selectionTimeLeft = 0;
                     
-                    // 2. ጨዋታው ሲጀምር የመምረጫ ሰዓቱን እናቆማለን
                     clearInterval(gameInterval); 
                     
-                    const totalPlayers = playerArray.filter(p => p.selectedCardId).length;
                     const totalStake = totalPlayers * 10;
                     const prize = Math.floor(totalStake * 0.8);
 
@@ -958,17 +958,14 @@ function startGlobalTimer() {
                         prizePool: prize
                     });
                     
-                    // የጨዋታ መረጃዎችን ማዘጋጀት
                     const calledNumbers = [];
                     const numbersPool = Array.from({length: 75}, (_, i) => i + 1);
                     
-                    // ቁጥሮችን መቀላቀል (Shuffle)
                     for (let i = numbersPool.length - 1; i > 0; i--) {
                         const j = Math.floor(Math.random() * (i + 1));
                         [numbersPool[i], numbersPool[j]] = [numbersPool[j], numbersPool[i]];
                     }
 
-                    // 3. አዲስ ለቁጥር መጥሪያ የሚሆን ቆጣሪ መጀመር
                     gameInterval = setInterval(() => {
                         if (gameStatus !== 'playing') {
                             clearInterval(gameInterval);
@@ -989,16 +986,47 @@ function startGlobalTimer() {
 
                             broadcast({ type: 'number_called', number: num, allCalled: calledNumbers });
                         } else {
-                            // 4. ቁጥሮች ሲያልቁ ቆጣሪውን አጥፍቶ ወደ ምርጫ መመለስ
                             clearInterval(gameInterval);
                             gameStatus = 'selection';
                             selectionTimeLeft = 45;
                             broadcast({ type: 'game_end', status: gameStatus });
                             startGlobalTimer();
                         }
-                    }, 3000); // ቁጥሮቹ በየ 3 ሰከንዱ እንዲጠሩ (ለተጫዋች ምቹ እንዲሆን)
+                    }, 3000);
+                } else if (totalPlayers === 1) {
+                    // Only 1 player - refund their stake and reset
+                    const singlePlayer = playersWithCards[0];
+                    console.log(`[GAME] Only 1 player (${singlePlayer.username}), refunding stake...`);
+                    
+                    Wallet.refundStake(singlePlayer.userId, 10)
+                        .then(() => {
+                            console.log(`[REFUND] Stake refunded to ${singlePlayer.username}`);
+                            if (singlePlayer.ws && singlePlayer.ws.readyState === 1) {
+                                singlePlayer.ws.send(JSON.stringify({ 
+                                    type: 'stake_refunded', 
+                                    message: 'ቢያንስ 2 ተጫዋቾች ስላልነበሩ ገንዘብዎ ተመልሷል።',
+                                    amount: 10
+                                }));
+                            }
+                        })
+                        .catch(err => console.error('[REFUND ERROR]', err));
+                    
+                    singlePlayer.selectedCardId = null;
+                    singlePlayer.stakeAmount = 0;
+                    if (singlePlayer.ws) {
+                        singlePlayer.ws.selectedCardId = null;
+                        singlePlayer.ws.stakeAmount = 0;
+                    }
+                    
+                    selectionTimeLeft = 45;
+                    broadcast({ 
+                        type: 'game_cancelled', 
+                        message: 'ቢያንስ 2 ተጫዋቾች ያስፈልጋሉ። እባክዎ እንደገና ይሞክሩ።',
+                        takenCards: []
+                    });
+                    broadcast({ type: 'timer', timeLeft: selectionTimeLeft, status: gameStatus });
                 } else {
-                    // ተጫዋች ከሌለ ሰዓቱን አድሶ መቀጠል
+                    // No players - reset timer
                     selectionTimeLeft = 45;
                     broadcast({ type: 'timer', timeLeft: selectionTimeLeft, status: gameStatus });
                 }
@@ -1039,51 +1067,83 @@ wss.on('connection', (ws) => {
             }
             
             const stake = 10;
-            // Check if card is already taken
-            const isTaken = Object.values(players).some(p => p.selectedCardId === data.cardId);
+            // Check if card is already taken by another player
+            const isTaken = Object.values(players).some(p => p.selectedCardId === data.cardId && p.userId !== ws.userId);
             if (isTaken) {
                 ws.send(JSON.stringify({ type: 'error', message: 'ይህ ካርድ ተይዟል! እባክዎ ሌላ ይምረጡ።' }));
                 return;
             }
+            
+            // Check if player already paid for this round (changing card without extra charge)
+            const alreadyPaid = ws.stakeAmount > 0;
+            
+            if (alreadyPaid) {
+                // Player already paid - just update their card selection, no charge
+                const oldCardId = ws.selectedCardId;
+                ws.selectedCardId = data.cardId;
+                console.log(`[CARD CHANGE] ${ws.username} changed card from #${oldCardId} to #${data.cardId} (no extra charge)`);
+                
+                const takenCards = Object.values(players)
+                    .filter(p => p.selectedCardId)
+                    .map(p => p.selectedCardId);
+                
+                const totalPlayers = Object.values(players).filter(p => p.selectedCardId).length;
+                const totalStake = totalPlayers * stake;
+                const prize = Math.floor(totalStake * 0.8);
 
-            Wallet.stake(ws.userId, stake, 0)
-                .then(result => {
-                    if (!result.success) {
-                        ws.send(JSON.stringify({ type: 'error', message: result.error || 'በቂ የሂሳብ መጠን የለዎትም!' }));
-                        return;
+                broadcast({ 
+                    type: 'selection_update', 
+                    takenCards: takenCards,
+                    playerCount: totalPlayers,
+                    prizePool: prize,
+                    lastSelected: {
+                        userId: ws.userId,
+                        username: ws.username,
+                        cardId: data.cardId
                     }
-                    
-                    ws.selectedCardId = data.cardId;
-                    ws.stakeAmount = stake;
-                    console.log(`[CARD SELECTION] ${ws.username} selected card #${data.cardId}`);
-                    
-                    // Broadcast updated selections to everyone immediately
-                    const takenCards = Object.values(players)
-                        .filter(p => p.selectedCardId)
-                        .map(p => p.selectedCardId);
-                    
-                    const totalPlayers = Object.values(players).filter(p => p.selectedCardId).length;
-                    const totalStake = totalPlayers * stake;
-                    const prize = Math.floor(totalStake * 0.8);
-
-                    broadcast({ 
-                        type: 'selection_update', 
-                        takenCards: takenCards,
-                        playerCount: totalPlayers,
-                        prizePool: prize,
-                        lastSelected: {
-                            userId: ws.userId,
-                            username: ws.username,
-                            cardId: data.cardId
-                        }
-                    });
-
-                    ws.send(JSON.stringify({ type: 'card_confirmed', cardId: data.cardId, newBalance: result.balance }));
-                })
-                .catch(err => {
-                    console.error('[STAKE ERROR]', err);
-                    ws.send(JSON.stringify({ type: 'error', message: 'የውርርድ ክፍያ አልተሳካም!' }));
                 });
+
+                ws.send(JSON.stringify({ type: 'card_confirmed', cardId: data.cardId, message: 'ካርድ ተቀይሯል (ተጨማሪ ክፍያ የለም)' }));
+            } else {
+                // First card selection - charge stake
+                Wallet.stake(ws.userId, stake, 0)
+                    .then(result => {
+                        if (!result.success) {
+                            ws.send(JSON.stringify({ type: 'error', message: result.error || 'በቂ የሂሳብ መጠን የለዎትም!' }));
+                            return;
+                        }
+                        
+                        ws.selectedCardId = data.cardId;
+                        ws.stakeAmount = stake;
+                        console.log(`[CARD SELECTION] ${ws.username} selected card #${data.cardId}`);
+                        
+                        const takenCards = Object.values(players)
+                            .filter(p => p.selectedCardId)
+                            .map(p => p.selectedCardId);
+                        
+                        const totalPlayers = Object.values(players).filter(p => p.selectedCardId).length;
+                        const totalStake = totalPlayers * stake;
+                        const prize = Math.floor(totalStake * 0.8);
+
+                        broadcast({ 
+                            type: 'selection_update', 
+                            takenCards: takenCards,
+                            playerCount: totalPlayers,
+                            prizePool: prize,
+                            lastSelected: {
+                                userId: ws.userId,
+                                username: ws.username,
+                                cardId: data.cardId
+                            }
+                        });
+
+                        ws.send(JSON.stringify({ type: 'card_confirmed', cardId: data.cardId, newBalance: result.balance }));
+                    })
+                    .catch(err => {
+                        console.error('[STAKE ERROR]', err);
+                        ws.send(JSON.stringify({ type: 'error', message: 'የውርርድ ክፍያ አልተሳካም!' }));
+                    });
+            }
         } else if (data.type === 'call_bingo') {
             if (!ws.selectedCardId) {
                 console.log(`[BINGO FAILED] ${ws.username} has no card selected`);
