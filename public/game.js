@@ -604,6 +604,7 @@ function initializeGlobalMenu() {
             }
             else if (target === 'wallet') showScreen('wallet-screen');
             else if (target === 'referral') showInviteModal();
+            else if (target === 'leaderboard') { showScreen('leaderboard-screen'); loadLeaderboard(); }
             else if (target === 'admin') window.location.href = '/admin';
             menu.classList.remove('active');
         };
@@ -1279,9 +1280,6 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (target === 'profile') {
                 showScreen('profile-screen');
                 loadProfile();
-            } else if (target === 'leaderboard') {
-                showScreen('leaderboard-screen');
-                loadLeaderboard();
             } else if (target === 'game') {
                 showSelectionScreen();
                 if (!ws || ws.readyState !== WebSocket.OPEN) {
