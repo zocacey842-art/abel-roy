@@ -324,13 +324,12 @@ app.post('/api/verify-registration', async (req, res) => {
         const userResult = await pool.query('SELECT * FROM users WHERE telegram_id = $1', [telegramId]);
         const user = userResult.rows[0];
 
-        // Check wallet
-        const walletCheck = await pool.query('SELECT * FROM wallets WHERE user_id = $1', [user.id]);
-        if (walletCheck.rows.length === 0) {
-            await pool.query('INSERT INTO wallets (user_id, deposit_balance) VALUES ($1, 10.00)', [user.id]);
-        }
+        // Registration bonus disabled
+        // await pool.query('INSERT INTO wallets (user_id, deposit_balance) VALUES ($1, 10.00)', [user.id]);
+        await pool.query('INSERT INTO wallets (user_id, deposit_balance) VALUES ($1, 0.00)', [user.id]);
 
-        // Process referral bonus - give referrer 2 ETB
+        // Process referral bonus - give referrer 2 ETB (Disabled)
+        /*
         if (user.referred_by) {
             const referrerCheck = await pool.query('SELECT id FROM users WHERE id = $1', [user.referred_by]);
             if (referrerCheck.rows.length > 0) {
@@ -365,13 +364,14 @@ app.post('/api/verify-registration', async (req, res) => {
                 }
             }
         }
+        */
 
         const token = jwt.sign({ userId: user.id, username: user.username }, JWT_SECRET);
         
         // Notify user via Telegram
         if (bot) {
             const currentDomain = MINI_APP_URL || (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://royal-bingo.onrender.com");
-            const welcomeMessage = `እንኳን ደስ አሎት! 🎉\n\nምዝገባዎ በተሳካ ሁኔታ ተጠናቋል፡፡ የ 10 ብር የመመዝገቢያ ቦነስ ወደ አካውንትዎ ገብቷል፡፡ አሁን ተወዳጁን ሮያል ቢንጎን መጫወት ይችላሉ፡፡\n\nመልካም እድል! 👑`;
+            const welcomeMessage = `እንኳን ደስ አሎት! 🎉\n\nምዝገባዎ በተሳካ ሁኔታ ተጠናቋል፡፡ አሁን ተወዳጁን ሮያል ቢንጎን መጫወት ይችላሉ፡፡\n\nመልካም እድል! 👑`;
             
             const opts = {
                 reply_markup: {
@@ -402,8 +402,9 @@ app.post('/api/register', async (req, res) => {
             'INSERT INTO users (username, password, phone_number, is_registered) VALUES ($1, $2, $3, true) RETURNING id',
             [username, hashedPassword, phone]
         );
-        const userId = result.rows[0].id;
-        await pool.query('INSERT INTO wallets (user_id, deposit_balance) VALUES ($1, 10.00)', [userId]);
+        // Registration bonus disabled
+        // await pool.query('INSERT INTO wallets (user_id, deposit_balance) VALUES ($1, 10.00)', [userId]);
+        await pool.query('INSERT INTO wallets (user_id, deposit_balance) VALUES ($1, 0.00)', [userId]);
         res.json({ success: true });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -564,17 +565,9 @@ app.post('/api/webhook/sms', async (req, res) => {
                 if (pendingMatch.rows.length > 0) {
                     const deposit = pendingMatch.rows[0];
                     const depAmount = parseFloat(deposit.amount);
+        // 10% ቦነስ መጨመር (Disabled)
+                    /*
                     const bonus = depAmount * 0.10; // 10% ቦነስ
-                    
-                    console.log(`[SMS Webhook] Matching pending deposit found for user ${deposit.user_id}`);
-                    
-                    // ዲፖዚቱን ማጽደቅ
-                    await pool.query("UPDATE deposits SET status = 'completed' WHERE id = $1", [deposit.id]);
-                    
-                    // ዋናውን ገንዘብ ወደ Wallet መጨመር
-                    await Wallet.deposit(deposit.user_id, depAmount, `Auto-Approved: ${transactionId}`);
-                    
-                    // 10% ቦነስ መጨመር
                     await pool.query('UPDATE wallets SET deposit_balance = deposit_balance + $1 WHERE user_id = $2', [bonus, deposit.user_id]);
                     
                     // የቦነስ ትራንዛክሽን መመዝገብ
@@ -582,6 +575,7 @@ app.post('/api/webhook/sms', async (req, res) => {
                         'INSERT INTO transactions (user_id, amount, type, description) VALUES ($1, $2, $3, $4)',
                         [deposit.user_id, bonus, 'deposit_bonus', `10% Deposit bonus for TX ${transactionId}`]
                     );
+                    */
                     
                     // ኤስኤምኤሱ ተረክቧል (processed) ማለት
                     await pool.query("UPDATE received_sms SET processed = true WHERE transaction_id = $1", [transactionId]);
@@ -589,7 +583,7 @@ app.post('/api/webhook/sms', async (req, res) => {
                     // ለተጠቃሚው በቴሌግራም ማሳወቅ
                     const userResult = await pool.query('SELECT telegram_id FROM users WHERE id = $1', [deposit.user_id]);
                     if (bot && userResult.rows[0]?.telegram_id) {
-                        const userMsg = `✅ *የዲፖዚት ጥያቄዎ ወዲያውኑ ተረጋግጧል!*\n\nመጠን: ${depAmount} ETB\nቦነስ (10%): ${bonus.toFixed(2)} ETB\nትራንዛክሽን ID: ${transactionId}\n\nመልካም ጨዋታ!`;
+                        const userMsg = `✅ *የዲፖዚት ጥያቄዎ ወዲያውኑ ተረጋግጧል!*\n\nመጠን: ${depAmount} ETB\nትራንዛክሽን ID: ${transactionId}\n\nመልካም ጨዋታ!`;
                         bot.sendMessage(userResult.rows[0].telegram_id, userMsg, { parse_mode: 'Markdown' }).catch(e => console.error('Bot notify error:', e));
                     }
                 } else {
