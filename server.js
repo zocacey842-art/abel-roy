@@ -464,7 +464,10 @@ app.get('/api/leaderboard', async (req, res) => {
             // We subtract 3 hours from UTC to align with Ethiopian start of day
             dateFilter = "AND w.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Africa/Addis_Ababa' >= CURRENT_DATE AT TIME ZONE 'Africa/Addis_Ababa'";
         } else if (period === 'weekly') {
-            // Reset every Monday Midnight Ethiopia time
+            // Reset every Sunday Midnight Ethiopia time
+            // In Postgres, date_trunc('week', ...) defaults to Monday. 
+            // To reset on Sunday Midnight (start of Monday), we can use the default week trunc 
+            // as it effectively starts the new week on Monday 00:00.
             dateFilter = "AND w.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Africa/Addis_Ababa' >= date_trunc('week', now() AT TIME ZONE 'Africa/Addis_Ababa')";
         } else if (period === 'monthly') {
             // Reset 1st of month Midnight Ethiopia time
