@@ -719,45 +719,47 @@ function showScreen(screenId) {
     }
 }
 
-let leaderboardData = { topWinners: [], topEarners: [] };
-let currentLeaderboardTab = 'winners';
+let leaderboardData = [];
+let currentLeaderboardPeriod = 'daily';
 
-async function loadLeaderboard() {
+async function loadLeaderboard(period = currentLeaderboardPeriod) {
     const listEl = document.getElementById('leaderboard-list');
     if (!listEl) return;
     
     listEl.innerHTML = '<div class="leaderboard-loading">እየጫነ ነው...</div>';
     
     try {
-        const res = await fetch('/api/leaderboard');
-        leaderboardData = await res.json();
+        const res = await fetch(`/api/leaderboard?period=${period}`);
+        const data = await res.json();
+        leaderboardData = data.leaderboard || [];
         renderLeaderboard();
     } catch (err) {
         listEl.innerHTML = '<div class="leaderboard-error">መረጃ ማግኘት አልተቻለም</div>';
     }
 }
 
-function switchLeaderboardTab(tab) {
-    currentLeaderboardTab = tab;
-    document.getElementById('tab-winners').classList.toggle('active', tab === 'winners');
-    document.getElementById('tab-earners').classList.toggle('active', tab === 'earners');
-    renderLeaderboard();
+function switchLeaderboardPeriod(period) {
+    currentLeaderboardPeriod = period;
+    document.getElementById('tab-daily').classList.toggle('active', period === 'daily');
+    document.getElementById('tab-weekly').classList.toggle('active', period === 'weekly');
+    document.getElementById('tab-monthly').classList.toggle('active', period === 'monthly');
+    loadLeaderboard(period);
 }
 
 function renderLeaderboard() {
     const listEl = document.getElementById('leaderboard-list');
     if (!listEl) return;
     
-    const data = currentLeaderboardTab === 'winners' ? leaderboardData.topWinners : leaderboardData.topEarners;
-    
-    if (!data || data.length === 0) {
-        listEl.innerHTML = '<div class="leaderboard-empty">እስካሁን ማንም አላሸነፈም</div>';
+    if (!leaderboardData || leaderboardData.length === 0) {
+        const periodText = currentLeaderboardPeriod === 'daily' ? 'ዛሬ' : 
+                          currentLeaderboardPeriod === 'weekly' ? 'በዚህ ሳምንት' : 'በዚህ ወር';
+        listEl.innerHTML = `<div class="leaderboard-empty">${periodText} እስካሁን ማንም አላሸነፈም</div>`;
         return;
     }
     
     const medals = ['🥇', '🥈', '🥉'];
     
-    listEl.innerHTML = data.map((player, index) => `
+    listEl.innerHTML = leaderboardData.map((player, index) => `
         <div class="leaderboard-item ${index < 3 ? 'top-three' : ''}">
             <div class="leaderboard-rank">${index < 3 ? medals[index] : (index + 1)}</div>
             <div class="leaderboard-name">${player.username || 'Unknown'}</div>
@@ -769,7 +771,7 @@ function renderLeaderboard() {
     `).join('');
 }
 
-window.switchLeaderboardTab = switchLeaderboardTab;
+window.switchLeaderboardPeriod = switchLeaderboardPeriod;
 
 async function loadTransactions() {
     const token = localStorage.getItem('bingo_token');

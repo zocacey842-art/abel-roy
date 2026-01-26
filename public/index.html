@@ -326,9 +326,10 @@
                 <button class="screen-back-btn" onclick="showScreen('selection-screen')">← ተመለስ</button>
                 <h1 style="text-align: center; margin-bottom: 20px;">🏆 ሊደርቦርድ</h1>
                 
-                <div class="leaderboard-tabs" style="display: flex; gap: 10px; margin-bottom: 20px;">
-                    <button id="tab-winners" class="leaderboard-tab active" onclick="switchLeaderboardTab('winners')">🥇 ብዙ አሸናፊዎች</button>
-                    <button id="tab-earners" class="leaderboard-tab" onclick="switchLeaderboardTab('earners')">💰 ብዙ ገቢ</button>
+                <div class="leaderboard-tabs" style="display: flex; gap: 8px; margin-bottom: 20px;">
+                    <button id="tab-daily" class="leaderboard-tab active" onclick="switchLeaderboardPeriod('daily')">📅 የእለቱ</button>
+                    <button id="tab-weekly" class="leaderboard-tab" onclick="switchLeaderboardPeriod('weekly')">📆 የሳምንቱ</button>
+                    <button id="tab-monthly" class="leaderboard-tab" onclick="switchLeaderboardPeriod('monthly')">🗓️ የወሩ</button>
                 </div>
                 
                 <div id="leaderboard-list" class="leaderboard-list">
