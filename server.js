@@ -501,34 +501,39 @@ app.get('/api/leaderboard', async (req, res) => {
 
 // SMS Forwarder Webhook for Automatic Deposit Approval
 app.post('/api/webhook/sms', async (req, res) => {
-    const { from, body } = req.body;
-    console.log(`[SMS Webhook] Received from ${from}: ${body}`);
+    try {
+        const { from, body } = req.body;
+        console.log(`[SMS Webhook] Received from ${from}: ${body}`);
 
-    if (!from || !body) return res.sendStatus(400);
+        if (!from || !body) {
+            console.log('[SMS Webhook] Missing from or body');
+            return res.sendStatus(400);
+        }
 
-    if (from.toLowerCase().includes('81122') || from.toLowerCase().includes('telebirr')) {
-        const txMatch = body.match(/(?:Transaction ID|መለያ ቁጥር|ID)[:\s]+([A-Z0-9]+)/i) || body.match(/([A-Z0-9]{10,})/);
-        const amountMatch = body.match(/(?:amount|መጠን)[:\s]*([\d,.]+)/i);
+        if (from.toLowerCase().includes('81122') || from.toLowerCase().includes('telebirr') || from.includes('TELEBIRR')) {
+            const txMatch = body.match(/(?:Transaction ID|መለያ ቁጥር|ID)[:\s]+([A-Z0-9]+)/i) || body.match(/([A-Z0-9]{10,})/);
+            const amountMatch = body.match(/(?:amount|መጠን)[:\s]*([\d,.]+)/i);
 
-        if (txMatch) {
-            const transactionId = txMatch[1];
-            const amount = amountMatch ? parseFloat(amountMatch[1].replace(/,/g, '')) : null;
+            if (txMatch) {
+                const transactionId = txMatch[1];
+                const amount = amountMatch ? parseFloat(amountMatch[1].replace(/,/g, '')) : null;
 
-            // Check if this SMS was already received/processed
-            const existingSms = await pool.query("SELECT id FROM received_sms WHERE transaction_id = $1", [transactionId]);
-            if (existingSms.rows.length > 0) {
-                console.log(`[SMS Webhook] SMS for TX ${transactionId} already exists. Skipping.`);
-                return res.sendStatus(200);
-            }
+                console.log(`[SMS Webhook] Parsing: TX=${transactionId}, Amount=${amount}`);
 
-            // Save to received_sms table
-            await pool.query(
-                "INSERT INTO received_sms (transaction_id, amount, body, sender) VALUES ($1, $2, $3, $4)",
-                [transactionId, amount, body, from]
-            );
+                // Check if this SMS was already received/processed
+                const existingSms = await pool.query("SELECT id FROM received_sms WHERE transaction_id = $1", [transactionId]);
+                if (existingSms.rows.length > 0) {
+                    console.log(`[SMS Webhook] SMS for TX ${transactionId} already exists. Skipping.`);
+                    return res.sendStatus(200);
+                }
 
-            // Check if there's a matching pending deposit from a user
-            try {
+                // Save to received_sms table
+                await pool.query(
+                    "INSERT INTO received_sms (transaction_id, amount, body, sender) VALUES ($1, $2, $3, $4)",
+                    [transactionId, amount, body, from]
+                );
+
+                // Check if there's a matching pending deposit from a user
                 const pendingMatch = await pool.query(
                     "SELECT * FROM deposits WHERE confirmation_code = $1 AND status = 'pending'",
                     [transactionId]
@@ -536,13 +541,15 @@ app.post('/api/webhook/sms', async (req, res) => {
 
                 if (pendingMatch.rows.length > 0) {
                     const deposit = pendingMatch.rows[0];
-                    const amount = parseFloat(deposit.amount);
-                    const bonus = amount * 0.10;
+                    const depAmount = parseFloat(deposit.amount);
+                    const bonus = depAmount * 0.10;
+                    
+                    console.log(`[SMS Webhook] Matching pending deposit found for user ${deposit.user_id}`);
                     
                     await pool.query("UPDATE deposits SET status = 'completed' WHERE id = $1", [deposit.id]);
                     
                     // Base amount to total balance
-                    await Wallet.deposit(deposit.user_id, amount, `Auto-Approved: ${transactionId}`);
+                    await Wallet.deposit(deposit.user_id, depAmount, `Auto-Approved: ${transactionId}`);
                     
                     // 10% bonus to deposit_balance (non-withdrawable)
                     if (bonus > 0) {
@@ -557,16 +564,23 @@ app.post('/api/webhook/sms', async (req, res) => {
                     
                     const userResult = await pool.query('SELECT telegram_id FROM users WHERE id = $1', [deposit.user_id]);
                     if (bot && userResult.rows[0]?.telegram_id) {
-                        const userMsg = `✅ *የዲፖዚት ጥያቄዎ በራስ-ሰር ተረጋግጧል!*\n\nመጠን: ${amount} ETB\nቦነስ (10%): ${bonus.toFixed(2)} ETB\nትራንዛክሽን ID: ${transactionId}\n\nመልካም ጨዋታ!`;
+                        const userMsg = `✅ *የዲፖዚት ጥያቄዎ በራስ-ሰር ተረጋግጧል!*\n\nመጠን: ${depAmount} ETB\nቦነስ (10%): ${bonus.toFixed(2)} ETB\nትራንዛክሽን ID: ${transactionId}\n\nመልካም ጨዋታ!`;
                         bot.sendMessage(userResult.rows[0].telegram_id, userMsg, { parse_mode: 'Markdown' }).catch(e => console.error('Bot notify error:', e));
                     }
+                } else {
+                    console.log(`[SMS Webhook] No pending deposit found for TX ${transactionId} yet.`);
                 }
-            } catch (err) {
-                console.error('[SMS Webhook] Error processing match:', err);
+            } else {
+                console.log('[SMS Webhook] Could not parse Transaction ID from body');
             }
+        } else {
+            console.log(`[SMS Webhook] Sender ${from} not recognized as telebirr`);
         }
+        res.sendStatus(200);
+    } catch (err) {
+        console.error('[SMS Webhook] Critical Error:', err);
+        res.status(500).send(err.message);
     }
-    res.sendStatus(200);
 });
 
 // Admin Endpoints
