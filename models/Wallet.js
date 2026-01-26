@@ -84,6 +84,16 @@ class Wallet {
                 return { success: false, error: 'ሊወጣ የሚችል በቂ የማሸነፊያ (Win Balance) የለዎትም!' };
             }
 
+            if (amount < 100) {
+                await client.query('ROLLBACK');
+                return { success: false, error: 'ዝቅተኛው የዊዝድሮው መጠን 100 ብር ነው!' };
+            }
+
+            if (winBefore - amount < 50) {
+                await client.query('ROLLBACK');
+                return { success: false, error: 'ገንዘብ ሲያወጡ ቢያንስ 50 ብር በዊን ባላንስ (Win Balance) ላይ ማስቀረት ይኖርብዎታል!' };
+            }
+
             const depositCheck = await client.query(
                 `SELECT COALESCE(SUM(amount), 0) as total FROM deposits WHERE user_id = $1 AND status = 'completed'`,
                 [userId]
