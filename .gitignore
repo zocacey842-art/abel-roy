@@ -8,6 +8,5 @@ yarn-error.log*
 .DS_Store
 uploads/
 *.log
-.replit
 .cache/
 .local/
