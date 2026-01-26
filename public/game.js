@@ -1075,6 +1075,13 @@ function checkWin(cardId, markedNumbers) {
     if (d1 || d2) return true;
     if (isMarked(0, 0) && isMarked(0, 4) && isMarked(4, 0) && isMarked(4, 4)) return true;
     if (isMarked(1, 2) && isMarked(3, 2) && isMarked(2, 1) && isMarked(2, 3)) return true;
+    // Check Cross pattern (4 numbers around FREE center)
+    // FREE is at index 12 (row 2, col 2)
+    // Neighbors in cross shape: (1,2), (3,2), (2,1), (2,3)
+    // Indices: 7, 17, 11, 13
+    const crossIndices = [7, 17, 11, 13];
+    if (crossIndices.every(idx => marked[idx])) return true;
+
     return false;
 }
 
