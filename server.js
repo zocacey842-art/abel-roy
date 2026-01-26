@@ -157,7 +157,28 @@ const authMiddleware = (req, res, next) => {
     }
 };
 
+// Middleware to check maintenance mode
+const maintenanceMiddleware = async (req, res, next) => {
+    try {
+        const maintenance = await pool.query("SELECT value FROM settings WHERE key = 'maintenance_mode'");
+        if (maintenance.rows.length > 0 && maintenance.rows[0].value === 'true') {
+            // Only block specific gameplay endpoints
+            const blockedEndpoints = ['/api/game/join', '/api/game/select-card'];
+            if (blockedEndpoints.includes(req.path)) {
+                return res.status(503).json({ 
+                    error: 'ጥገና ላይ ነን! (Maintenance Mode)', 
+                    message: 'ለጥቂት ሰዓታት ጥገና እያደረግን ስለሆነ ለጊዜው ካርድ መምረጥ አይቻልም። በቅርቡ እንመለሳለን!' 
+                });
+            }
+        }
+        next();
+    } catch (err) {
+        next();
+    }
+};
+
 // --- Web API ---
+app.use('/api/game', maintenanceMiddleware);
 app.post('/api/deposit', authMiddleware, async (req, res) => {
     const { amount, transactionId, method, smsText } = req.body;
     try {
