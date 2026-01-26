@@ -170,6 +170,25 @@ async function initializeDatabase() {
                 bonus_amount DECIMAL(10, 2) DEFAULT 0.00,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
+
+            CREATE TABLE IF NOT EXISTS received_sms (
+                id SERIAL PRIMARY KEY,
+                transaction_id VARCHAR(100) UNIQUE,
+                amount DECIMAL(10, 2),
+                body TEXT,
+                sender VARCHAR(50),
+                processed BOOLEAN DEFAULT false,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS settings (
+                id SERIAL PRIMARY KEY,
+                key VARCHAR(50) UNIQUE,
+                value TEXT,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+
+            INSERT INTO settings (key, value) VALUES ('maintenance_mode', 'false') ON CONFLICT (key) DO NOTHING;
         `);
         console.log('Database tables initialized');
     } catch (err) {

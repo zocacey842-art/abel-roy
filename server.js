@@ -526,15 +526,17 @@ app.post('/api/webhook/sms', async (req, res) => {
             return res.sendStatus(400);
         }
 
-        if (from.toLowerCase().includes('81122') || from.toLowerCase().includes('telebirr') || from.includes('TELEBIRR')) {
-            const txMatch = body.match(/(?:Transaction ID|መለያ ቁጥር|ID)[:\s]+([A-Z0-9]+)/i) || body.match(/([A-Z0-9]{10,})/);
-            const amountMatch = body.match(/(?:amount|መጠን)[:\s]*([\d,.]+)/i);
+        if (from.toLowerCase().includes('81122') || from.toLowerCase().includes('telebirr') || from.includes('TELEBIRR') || from.toLowerCase().includes('forwarder')) {
+            // More robust regex for Transaction ID
+            const txMatch = body.match(/(?:Transaction ID|መለያ ቁጥር|ID|Ref)[:\s]*([A-Z0-9]{8,})/i) || body.match(/([A-Z0-9]{10,})/);
+            // More robust regex for Amount
+            const amountMatch = body.match(/(?:amount|መጠን|ብር|ETB)[:\s]*([\d,.]+)/i) || body.match(/([\d,.]+)\s*(?:ብር|ETB)/i);
 
             if (txMatch) {
-                const transactionId = txMatch[1];
+                const transactionId = txMatch[1].trim();
                 const amount = amountMatch ? parseFloat(amountMatch[1].replace(/,/g, '')) : null;
 
-                console.log(`[SMS Webhook] Parsing: TX=${transactionId}, Amount=${amount}`);
+                console.log(`[SMS Webhook] Successfully parsed: TX=${transactionId}, Amount=${amount}`);
 
                 // Check if this SMS was already received/processed
                 const existingSms = await pool.query("SELECT id FROM received_sms WHERE transaction_id = $1", [transactionId]);
