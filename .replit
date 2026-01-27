@@ -17,8 +17,24 @@ author = "agent"
 task = "workflow.run"
 args = "Server"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Start application"
+
 [[workflows.workflow]]
 name = "Server"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm start"
+waitForPort = 5000
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
+[[workflows.workflow]]
+name = "Start application"
 author = "agent"
 
 [[workflows.workflow.tasks]]

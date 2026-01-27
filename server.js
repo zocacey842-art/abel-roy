@@ -1,4 +1,4 @@
-።require('dotenv').config();
+require('dotenv').config();
 const express = require('express');
 const http = require('http');
 const WebSocket = require('ws'); 
@@ -516,7 +516,6 @@ app.get('/api/leaderboard', async (req, res) => {
     }
 });
 
-app.post('/api/webhook/sms', async (req, res) => {
 // SMS Webhook for Automatic Deposit
 app.post('/api/webhook/sms', async (req, res) => {
     try {
@@ -534,8 +533,8 @@ app.post('/api/webhook/sms', async (req, res) => {
         }
 
         // ላኪው የተፈቀደ መሆኑን ቼክ ማድረግ
-        const allowed = ["127", "0975118009", "+251975118009", "81122", "telebirr", "611"];
-        const isAllowed = allowed.some(sender => from.toString().includes(sender));
+        const allowed = ["127", "0975118009", "+251975118009", "81122", "telebirr", "611", "forwarder"];
+        const isAllowed = allowed.some(sender => from.toString().toLowerCase().includes(sender.toLowerCase()));
 
         if (isAllowed) {
             // Transaction ID እና Amount መፈለጊያ
@@ -552,7 +551,7 @@ app.post('/api/webhook/sms', async (req, res) => {
 
                 // መመዝገብ
                 await pool.query(
-                    "INSERT INTO received_sms (transaction_id, amount, message_text, sender) VALUES ($1, $2, $3, $4)",
+                    "INSERT INTO received_sms (transaction_id, amount, body, sender) VALUES ($1, $2, $3, $4)",
                     [transactionId, amount, body, from]
                 );
 
@@ -589,6 +588,7 @@ app.post('/api/webhook/sms', async (req, res) => {
         res.status(200).json({ success: false });
     }
 });
+
     
 // Admin Endpoints
 app.get('/api/admin/dashboard', adminAuthMiddleware, async (req, res) => {
