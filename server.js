@@ -516,50 +516,45 @@ app.get('/api/leaderboard', async (req, res) => {
     }
 });
 
-// SMS Webhook for Automatic Deposit
 app.post('/api/webhook/sms', async (req, res) => {
     try {
-        // አፑ የሚልካቸውን ስሞች መለየት - በተለዋዋጭነት
-        let from = req.body.from || req.body.sender || req.body.phone || req.body.Address || req.body.address;
-        let body = req.body.body || req.body.message || req.body.text || req.body.Message || req.body.msg;
+        const body = req.body.key; 
+        let from = req.body.from;
 
         console.log("----------------------------");
         console.log("[SMS Webhook Raw Data]:", JSON.stringify(req.body));
 
-        // ዳታው ባዶ ከሆነ ወይም አፑ ቫሪያብሉን ካልቀየረው - ቼኩን ቀለል እናድርገው
-        if (!body || body === "%body%" || body === "{{body}}") {
-            console.log("[SMS Webhook] Invalid or Empty Body received");
-            return res.status(200).json({ success: false, error: "Invalid body" });
+        if (!body) {
+            console.log("[SMS Webhook] Empty body received");
+            return res.status(200).json({ success: false });
         }
 
-        // 'from' ባዶ ከሆነ ነባሪ ስም እንስጠው
-        if (!from || from === "%from%" || from === "{{from}}") {
+        // 1. ስልክ ቁጥሩን ከመልእክቱ (body) ውስጥ ፈልፍሎ ማውጣት
+        // በላክኸው ዳታ መሰረት "From : +251975118009()" የሚለውን ይፈልጋል
+        const phoneMatch = body.match(/From\s*:\s*(\+?\d{10,13})/);
+        if (phoneMatch) {
+            from = phoneMatch[1];
+        } else if (!from || from.includes("{")) {
             from = "Unknown";
         }
 
-        // ላኪው የተፈቀደ መሆኑን ቼክ ማድረግ - ማንኛውንም ላኪ እንዲቀበል ተደርጓል
-        const isAllowed = true;
+        console.log(`[SMS Webhook] Detected Sender: ${from}`);
 
-        if (isAllowed) {
-            // Transaction ID እና Amount መፈለጊያ
-            const txMatch = body.match(/(?:Transaction ID|መለያ ቁጥር|ID|Ref)[:\s]*([A-Z0-9]{8,})/i) || body.match(/([A-Z0-9]{10,})/);
-            const amountMatch = body.match(/([\d,]+\.\d{2})\s*(?:ብር|ETB)/i) || body.match(/(?:amount|መጠን)[:\s]*([\d,.]+)/i);
+        // 2. የቴሌብር መልእክት መሆኑን ቼክ ማድረግ
+        if (body.includes("ተቀብለዋል") && body.includes("ቁጥርዎ")) {
+            
+            // 3. የትራንዛክሽን ቁጥር (ለምሳሌ DA99OJWBAA)
+            const txMatch = body.match(/[A-Z0-9]{10}/); 
+            // 4. የብር መጠን (ለምሳሌ 100.00)
+            const amountMatch = body.match(/([\d,]+\.\d{2})\s*ብር/);
 
             if (txMatch) {
-                const transactionId = txMatch[1].trim();
-                const amount = amountMatch ? parseFloat(amountMatch[1].replace(/,/g, '')) : null;
+                const transactionId = txMatch[0];
+                const amount = amountMatch ? parseFloat(amountMatch[1].replace(/,/g, '')) : 0;
 
-                // ዳታቤዝ ውስጥ መኖሩን ማረጋገጥ
-                const existingSms = await pool.query("SELECT id FROM received_sms WHERE transaction_id = $1", [transactionId]);
-                if (existingSms.rows.length > 0) return res.sendStatus(200);
+                console.log(`🔍 Found: TX=${transactionId}, Amt=${amount}`);
 
-                // መመዝገብ
-                await pool.query(
-                    "INSERT INTO received_sms (transaction_id, amount, body, sender) VALUES ($1, $2, $3, $4)",
-                    [transactionId, amount, body, from]
-                );
-
-                // ፔንዲንግ ዲፖዚት መፈለግ
+                // 5. በዳታቤዝ ውስጥ 'pending' ዲፖዚት መፈለግ
                 const pendingMatch = await pool.query(
                     "SELECT * FROM deposits WHERE confirmation_code = $1 AND status = 'pending'",
                     [transactionId]
@@ -572,21 +567,47 @@ app.post('/api/webhook/sms', async (req, res) => {
                     const client = await pool.connect();
                     try {
                         await client.query('BEGIN');
-                        await client.query('UPDATE wallets SET deposit_balance = deposit_balance + $1 WHERE user_id = $2', [depAmount, deposit.user_id]);
-                        await client.query("UPDATE deposits SET status = 'completed' WHERE id = $1", [deposit.id]);
-                        await client.query('COMMIT');
+                        
+                        // ባላንስ መጨመር
+                        await client.query(
+                            'UPDATE wallets SET deposit_balance = deposit_balance + $1 WHERE user_id = $2',
+                            [depAmount, deposit.user_id]
+                        );
 
-                        // ቴሌግራም ማሳወቂያ
-                        const userResult = await client.query('SELECT telegram_id FROM users WHERE id = $1', [deposit.user_id]);
-                        if (bot && userResult.rows[0]?.telegram_id) {
-                            const userMsg = `✅ ዲፖዚት ተረጋግጧል!\n💰 መጠን: ${depAmount} ETB\n🆔 ID: ${transactionId}`;
-                            bot.sendMessage(userResult.rows[0].telegram_id, userMsg);
+                        // ዲፖዚቱን ማጽደቅ
+                        await client.query(
+                            "UPDATE deposits SET status = 'completed' WHERE id = $1",
+                            [deposit.id]
+                        );
+
+                        // SMS መመዝገብ
+                        await client.query(
+                            "INSERT INTO received_sms (transaction_id, amount, message_text, sender, processed) VALUES ($1, $2, $3, $4, true) ON CONFLICT DO NOTHING",
+                            [transactionId, amount, body, from]
+                        );
+
+                        await client.query('COMMIT');
+                        console.log(`✅ Success: Deposit approved for user ${deposit.user_id}`);
+
+                        // ለተጠቃሚው በቴሌግራም ማሳወቅ
+                        const user = await client.query('SELECT telegram_id FROM users WHERE id = $1', [deposit.user_id]);
+                        if (bot && user.rows[0]?.telegram_id) {
+                            bot.sendMessage(user.rows[0].telegram_id, `✅ የዲፖዚት ጥያቄዎ ወዲያውኑ ተረጋግጧል!\n💰 መጠን: ${depAmount} ETB\n🆔 ID: ${transactionId}`);
                         }
-                    } catch (e) { await client.query('ROLLBACK'); throw e; } finally { client.release(); }
+
+                    } catch (e) {
+                        await client.query('ROLLBACK');
+                        throw e;
+                    } finally {
+                        client.release();
+                    }
+                } else {
+                    console.log(`⚠️ No pending deposit found for ID: ${transactionId}`);
                 }
             }
         }
-        res.sendStatus(200);
+        
+        res.status(200).json({ success: true });
     } catch (err) {
         console.error('[SMS Webhook] Error:', err);
         res.status(200).json({ success: false });
