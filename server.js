@@ -519,17 +519,22 @@ app.get('/api/leaderboard', async (req, res) => {
 // SMS Webhook for Automatic Deposit
 app.post('/api/webhook/sms', async (req, res) => {
     try {
-        // አፑ የሚልካቸውን ስሞች መለየት
-        const from = req.body.from || req.body.sender || req.body.phone;
-        const body = req.body.body || req.body.message || req.body.text;
+        // አፑ የሚልካቸውን ስሞች መለየት - በተለዋዋጭነት
+        let from = req.body.from || req.body.sender || req.body.phone || req.body.Address || req.body.address;
+        let body = req.body.body || req.body.message || req.body.text || req.body.Message || req.body.msg;
 
         console.log("----------------------------");
         console.log("[SMS Webhook Raw Data]:", JSON.stringify(req.body));
 
-        // ዳታው ባዶ ከሆነ ወይም አፑ ቫሪያብሉን ካልቀየረው
-        if (!from || !body || from === "%from%" || from === "{{from}}") {
-            console.log("[SMS Webhook] Invalid or Empty Data received");
-            return res.status(200).json({ success: false, error: "Invalid data" });
+        // ዳታው ባዶ ከሆነ ወይም አፑ ቫሪያብሉን ካልቀየረው - ቼኩን ቀለል እናድርገው
+        if (!body || body === "%body%" || body === "{{body}}") {
+            console.log("[SMS Webhook] Invalid or Empty Body received");
+            return res.status(200).json({ success: false, error: "Invalid body" });
+        }
+
+        // 'from' ባዶ ከሆነ ነባሪ ስም እንስጠው
+        if (!from || from === "%from%" || from === "{{from}}") {
+            from = "Unknown";
         }
 
         // ላኪው የተፈቀደ መሆኑን ቼክ ማድረግ - ማንኛውንም ላኪ እንዲቀበል ተደርጓል
