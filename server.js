@@ -543,8 +543,8 @@ app.post('/api/webhook/sms', async (req, res) => {
         // 2. የቴሌብር መልእክት መሆኑን ቼክ ማድረግ
         if (body.includes("ተቀብለዋል") && body.includes("ቁጥርዎ")) {
             
-            // 3. የትራንዛክሽን ቁጥር (ለምሳሌ DA99OJWBAA)
-            const txMatch = body.match(/[A-Z0-9]{10}/); 
+            // 3. የትራንዛክሽን ቁጥር (ለምሳሌ DA99OJWBAA) - ቢያንስ 2 ፊደል ያለው
+            const txMatch = body.match(/(?<!\d)[A-Z]{2}[A-Z0-9]{8}(?!\d)/); 
             // 4. የብር መጠን (ለምሳሌ 100.00)
             const amountMatch = body.match(/([\d,]+\.\d{2})\s*ብር/);
 
