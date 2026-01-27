@@ -517,43 +517,71 @@ app.get('/api/leaderboard', async (req, res) => {
 });
 
 app.post('/api/webhook/sms', async (req, res) => {
+// SMS Webhook for Automatic Deposit
+app.post('/api/webhook/sms', async (req, res) => {
     try {
-        // 'from' ወይም 'sender' የሚሉትን ቁልፎች በሙሉ ቼክ ያደርጋል
+        // አፑ የሚልካቸውን ስሞች መለየት
         const from = req.body.from || req.body.sender || req.body.phone;
         const body = req.body.body || req.body.message || req.body.text;
 
         console.log("----------------------------");
-        console.log(`[SMS Webhook Raw Data]:`, JSON.stringify(req.body));
+        console.log("[SMS Webhook Raw Data]:", JSON.stringify(req.body));
 
-        // ዳታው ባዶ መሆኑን ብቻ ቼክ ያደርጋል
-        if (!from || !body) {
-            console.log(`[SMS Webhook] Empty Data received.`);
-            return res.status(200).json({ success: false, error: "Empty data" });
+        // ዳታው ባዶ ከሆነ ወይም አፑ ቫሪያብሉን ካልቀየረው
+        if (!from || !body || from === "%from%" || from === "{{from}}") {
+            console.log("[SMS Webhook] Invalid or Empty Data received");
+            return res.status(200).json({ success: false, error: "Invalid data" });
         }
 
-        // ላኪው %from% ቢሆንም እንኳ ለሙከራ እንዲያልፍ ተደርጓል
-        console.log(`[SMS Webhook] Received: from=${from}, body=${body.substring(0, 20)}...`);
-
-        // 1. ሴንደሩን ማረጋገጥ (ለሙከራ ያንተን ስልክ ጨምሮ)
-        const allowed = ["127", "0975118009", "+251975118009", "81122", "telebirr", "%from"]; 
+        // ላኪው የተፈቀደ መሆኑን ቼክ ማድረግ
+        const allowed = ["127", "0975118009", "+251975118009", "81122", "telebirr", "611"];
         const isAllowed = allowed.some(sender => from.toString().includes(sender));
 
-        if (isAllowed || from.includes("%from")) {
-            // የቴሌብር መፈለጊያ ኮድ እዚህ ይቀጥላል...
+        if (isAllowed) {
+            // Transaction ID እና Amount መፈለጊያ
             const txMatch = body.match(/(?:Transaction ID|መለያ ቁጥር|ID|Ref)[:\s]*([A-Z0-9]{8,})/i) || body.match(/([A-Z0-9]{10,})/);
             const amountMatch = body.match(/([\d,]+\.\d{2})\s*(?:ብር|ETB)/i) || body.match(/(?:amount|መጠን)[:\s]*([\d,.]+)/i);
 
             if (txMatch) {
                 const transactionId = txMatch[1].trim();
                 const amount = amountMatch ? parseFloat(amountMatch[1].replace(/,/g, '')) : null;
-                
-                console.log(`✅ የተገኘ ዳታ: ID=${transactionId}, Amount=${amount}`);
-                
-                // እዚህ ጋር ዳታቤዝ ውስጥ የማስገባት ኮድ ይገባል...
-                // (ከላይ የሰጠሁህ የዳታቤዝ ኮድ እዚህ ጋር ይቀጥላል)
+
+                // ዳታቤዝ ውስጥ መኖሩን ማረጋገጥ
+                const existingSms = await pool.query("SELECT id FROM received_sms WHERE transaction_id = $1", [transactionId]);
+                if (existingSms.rows.length > 0) return res.sendStatus(200);
+
+                // መመዝገብ
+                await pool.query(
+                    "INSERT INTO received_sms (transaction_id, amount, message_text, sender) VALUES ($1, $2, $3, $4)",
+                    [transactionId, amount, body, from]
+                );
+
+                // ፔንዲንግ ዲፖዚት መፈለግ
+                const pendingMatch = await pool.query(
+                    "SELECT * FROM deposits WHERE confirmation_code = $1 AND status = 'pending'",
+                    [transactionId]
+                );
+
+                if (pendingMatch.rows.length > 0) {
+                    const deposit = pendingMatch.rows[0];
+                    const depAmount = parseFloat(deposit.amount);
+
+                    const client = await pool.connect();
+                    try {
+                        await client.query('BEGIN');
+                        await client.query('UPDATE wallets SET deposit_balance = deposit_balance + $1 WHERE user_id = $2', [depAmount, deposit.user_id]);
+                        await client.query("UPDATE deposits SET status = 'completed' WHERE id = $1", [deposit.id]);
+                        await client.query('COMMIT');
+
+                        // ቴሌግራም ማሳወቂያ
+                        const userResult = await client.query('SELECT telegram_id FROM users WHERE id = $1', [deposit.user_id]);
+                        if (bot && userResult.rows[0]?.telegram_id) {
+                            const userMsg = `✅ ዲፖዚት ተረጋግጧል!\n💰 መጠን: ${depAmount} ETB\n🆔 ID: ${transactionId}`;
+                            bot.sendMessage(userResult.rows[0].telegram_id, userMsg);
+                        }
+                    } catch (e) { await client.query('ROLLBACK'); throw e; } finally { client.release(); }
+                }
             }
-        } else {
-            console.log(`[SMS Webhook] Sender ${from} is NOT allowed.`);
         }
         res.sendStatus(200);
     } catch (err) {
@@ -561,7 +589,7 @@ app.post('/api/webhook/sms', async (req, res) => {
         res.status(200).json({ success: false });
     }
 });
-
+    
 // Admin Endpoints
 app.get('/api/admin/dashboard', adminAuthMiddleware, async (req, res) => {
     try {
