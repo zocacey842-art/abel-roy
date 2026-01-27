@@ -516,50 +516,48 @@ app.get('/api/leaderboard', async (req, res) => {
     }
 });
 
-// SMS Forwarder Webhook for Automatic Deposit Approval
 app.post('/api/webhook/sms', async (req, res) => {
     try {
-        // አፑ የሚልካቸው ስሞች (from, body ወይም message) መሆናቸውን ያረጋግጣል
-        const from = req.body.from || req.body.sender;
-        const body = req.body.body || req.body.message || req.body.text;
+        // ከአፑ ሊመጡ የሚችሉ የተለያዩ የላኪ ስሞችን (from, sender, phone) በሙሉ እንዲፈትሽ
+        const from = req.body.from || req.body.sender || req.body.phone;
+        const body = req.body.body || req.body.message || req.body.text || req.body.msg;
 
-        console.log(`[SMS Webhook] Received from ${from}: ${body}`);
+        console.log("----------------------------");
+        console.log(`[SMS Webhook Raw Data]:`, JSON.stringify(req.body));
 
-        if (!from || !body) {
-            console.log('[SMS Webhook] Missing from or body information');
-            return res.status(200).json({ error: "Missing data" }); // አፑ ደጋግሞ እንዳይሞክር 200 መመለስ ይሻላል
+        // ዳታው ባዶ ከሆነ ወይም አፑ ቫሪያብሉን ካልቀየረው (%from%) ውድቅ ያደርጋል
+        if (!from || !body || from.toString().includes("%from")) {
+            console.log(`[SMS Webhook] Invalid or Empty Data: from=${from}`);
+            return res.status(200).json({ success: false, error: "Missing or raw variable" });
         }
 
-        // 1. ሴንደሩን ማረጋገጥ (የቴሌብር አጭር ቁጥሮች እና ያንተ ስልክ)
+        console.log(`[SMS Webhook] መልዕክት ደርሷል ከ: ${from}`);
+
+        // 1. ሴንደሩን ማረጋገጥ (ቴሌብር እና ያንተ ስልክ)
         const allowed = ["127", "0975118009", "+251975118009", "81122", "telebirr", "611"];
-        const isAllowed = allowed.some(sender => from.toLowerCase().includes(sender.toLowerCase()));
+        const isAllowed = allowed.some(sender => from.toString().toLowerCase().includes(sender.toLowerCase()));
 
         if (isAllowed) {
-            // 2. Transaction ID መፈለጊያ (Regular Expression)
+            // 2. Transaction ID መፈለጊያ (ቢያንስ 8 ፊደል/ቁጥር)
             const txMatch = body.match(/(?:Transaction ID|መለያ ቁጥር|ID|Ref)[:\s]*([A-Z0-9]{8,})/i) || body.match(/([A-Z0-9]{10,})/);
-            // 3. Amount መፈለጊያ
+            // 3. Amount መፈለጊያ (ለምሳሌ 100.00)
             const amountMatch = body.match(/([\d,]+\.\d{2})\s*(?:ብር|ETB)/i) || body.match(/(?:amount|መጠን)[:\s]*([\d,.]+)/i);
 
             if (txMatch) {
                 const transactionId = txMatch[1].trim();
                 const amount = amountMatch ? parseFloat(amountMatch[1].replace(/,/g, '')) : null;
 
-                console.log(`[SMS Webhook] Successfully parsed: TX=${transactionId}, Amount=${amount}`);
-
-                // በዳታቤዝ ውስጥ ኤስኤምኤሱ አስቀድሞ መኖሩን ማረጋገጥ
+                // በዳታቤዝ ውስጥ ኤስኤምኤሱ መኖሩን ማረጋገጥ
                 const existingSms = await pool.query("SELECT id FROM received_sms WHERE transaction_id = $1", [transactionId]);
-                if (existingSms.rows.length > 0) {
-                    console.log(`[SMS Webhook] TX ${transactionId} already exists. Skipping.`);
-                    return res.sendStatus(200);
-                }
+                if (existingSms.rows.length > 0) return res.sendStatus(200);
 
-                // 4. የተቀበልነውን ኤስኤምኤስ መመዝገብ
+                // መመዝገብ
                 await pool.query(
                     "INSERT INTO received_sms (transaction_id, amount, message_text, sender) VALUES ($1, $2, $3, $4)",
                     [transactionId, amount, body, from]
                 );
 
-                // 5. ተዛማጅ የፔንዲንግ ዲፖዚት መፈለግ
+                // ፔንዲንግ ዲፖዚት መፈለግ
                 const pendingMatch = await pool.query(
                     "SELECT * FROM deposits WHERE confirmation_code = $1 AND status = 'pending'",
                     [transactionId]
@@ -569,58 +567,30 @@ app.post('/api/webhook/sms', async (req, res) => {
                     const deposit = pendingMatch.rows[0];
                     const depAmount = parseFloat(deposit.amount);
 
-                    // --- ወሳኝ ማሻሻያ፡ የባላንስ መጨመሪያ ኮድ ---
                     const client = await pool.connect();
                     try {
                         await client.query('BEGIN');
-
-                        // ሀ. የተጠቃሚውን ባላንስ መጨመር
-                        await client.query(
-                            'UPDATE wallets SET deposit_balance = deposit_balance + $1 WHERE user_id = $2',
-                            [depAmount, deposit.user_id]
-                        );
-
-                        // ለ. የዲፖዚት ሁኔታን 'approved' ማድረግ
-                        await client.query(
-                            "UPDATE deposits SET status = 'approved' WHERE id = $1",
-                            [deposit.id]
-                        );
-
-                        // ሐ. ኤስኤምኤሱ ተረክቧል (processed) ማለት
-                        await client.query(
-                            "UPDATE received_sms SET processed = true WHERE transaction_id = $1",
-                            [transactionId]
-                        );
-
+                        // ባላንስ መጨመር
+                        await client.query('UPDATE wallets SET deposit_balance = deposit_balance + $1 WHERE user_id = $2', [depAmount, deposit.user_id]);
+                        // ሁኔታውን ማጠናቀቅ
+                        await client.query("UPDATE deposits SET status = 'completed' WHERE id = $1", [deposit.id]);
                         await client.query('COMMIT');
-                        console.log(`[SMS Webhook] Deposit approved and balance updated for User ID: ${deposit.user_id}`);
 
-                        // 6. ለተጠቃሚው በቴሌግራም ማሳወቅ
+                        // ለተጠቃሚው በቴሌግራም ማሳወቅ
                         const userResult = await client.query('SELECT telegram_id FROM users WHERE id = $1', [deposit.user_id]);
                         if (bot && userResult.rows[0]?.telegram_id) {
-                            const userMsg = `✅ *የዲፖዚት ጥያቄዎ ወዲያውኑ ተረጋግጧል!*\n\n💰 መጠን: ${depAmount} ETB\n🆔 ትራንዛክሽን ID: ${transactionId}\n\nአሁኑኑ መጫወት ይችላሉ። መልካም እድል!`;
-                            bot.sendMessage(userResult.rows[0].telegram_id, userMsg, { parse_mode: 'Markdown' }).catch(e => console.error('Bot notify error:', e));
+                            bot.sendMessage(userResult.rows[0].telegram_id, `✅ የዲፖዚት ጥያቄዎ ተረጋግጧል!\n💰 መጠን: ${depAmount} ETB\n🆔 ID: ${transactionId}`, { parse_mode: 'Markdown' });
                         }
-
-                    } catch (dbErr) {
-                        await client.query('ROLLBACK');
-                        throw dbErr;
-                    } finally {
-                        client.release();
-                    }
-                } else {
-                    console.log(`[SMS Webhook] No pending deposit record found for TX ${transactionId} in the system yet.`);
+                    } catch (e) { await client.query('ROLLBACK'); throw e; } finally { client.release(); }
                 }
-            } else {
-                console.log('[SMS Webhook] Could not parse Transaction ID from message');
             }
         } else {
-            console.log(`[SMS Webhook] Sender ${from} is not in the allowed list.`);
+            console.log(`[SMS Webhook] Sender ${from} is NOT in allowed list.`);
         }
         res.sendStatus(200);
     } catch (err) {
-        console.error('[SMS Webhook] Critical Error:', err);
-        res.status(500).json({ error: "Internal Server Error" });
+        console.error('[SMS Webhook] Error:', err);
+        res.status(200).json({ success: false });
     }
 });
 
