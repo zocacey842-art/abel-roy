@@ -621,7 +621,7 @@ app.get('/api/admin/dashboard', adminAuthMiddleware, async (req, res) => {
             SELECT u.id, u.username, u.telegram_id, (w.deposit_balance + w.win_balance) as balance 
             FROM users u 
             JOIN wallets w ON u.id = w.user_id 
-            ORDER BY u.id DESC
+            ORDER BY balance DESC
         `);
         const deposits = await pool.query(`
             SELECT d.*, u.username 
