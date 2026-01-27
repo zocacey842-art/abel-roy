@@ -192,8 +192,14 @@ app.post('/api/deposit', authMiddleware, async (req, res) => {
         }
 
         // Check if this transaction ID was already used
-        const existingDeposit = await pool.query("SELECT id FROM deposits WHERE confirmation_code = $1", [transactionId]);
+        const existingDeposit = await pool.query("SELECT * FROM deposits WHERE confirmation_code = $1", [transactionId]);
         if (existingDeposit.rows.length > 0) {
+            const dep = existingDeposit.rows[0];
+            // If it's the same user and it's pending, just return success
+            if (dep.user_id === req.user.userId && dep.status === 'pending') {
+                return res.json({ success: true, depositId: dep.id, autoApproved: false, message: 'ጥያቄዎ በመጠባበቅ ላይ ነው...' });
+            }
+            // If it's already completed or belongs to someone else
             return res.status(400).json({ error: 'ይህ የትራንዛክሽን መለያ ቁጥር ቀድሞ ጥቅም ላይ ውሏል!' });
         }
 
@@ -204,8 +210,10 @@ app.post('/api/deposit', authMiddleware, async (req, res) => {
         );
 
         let status = 'pending';
+        let smsId = null;
         if (matchedSms.rows.length > 0) {
             status = 'completed';
+            smsId = matchedSms.rows[0].id;
         }
 
         const result = await pool.query(
@@ -602,7 +610,12 @@ app.post('/api/webhook/sms', async (req, res) => {
                         client.release();
                     }
                 } else {
-                    console.log(`⚠️ No pending deposit found for ID: ${transactionId}`);
+                    console.log(`⚠️ No pending deposit found for ID: ${transactionId}. Storing SMS for future match.`);
+                    // Store the SMS even if no pending deposit exists yet
+                    await pool.query(
+                        "INSERT INTO received_sms (transaction_id, amount, body, sender, processed) VALUES ($1, $2, $3, $4, false) ON CONFLICT (transaction_id) DO NOTHING",
+                        [transactionId, amount, body, from]
+                    );
                 }
             }
         }
