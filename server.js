@@ -191,16 +191,22 @@ app.post('/api/deposit', authMiddleware, async (req, res) => {
             return res.status(400).json({ error: 'ዝቅተኛው የዲፖዚት መጠን 30 ብር ነው!' });
         }
 
+        console.log(`[DEPOSIT] Attempt: User=${req.user.userId}, ID=${transactionId}, Amt=${amount}`);
+
         // Check if this transaction ID was already used
         const existingDeposit = await pool.query("SELECT * FROM deposits WHERE confirmation_code = $1", [transactionId]);
         if (existingDeposit.rows.length > 0) {
             const dep = existingDeposit.rows[0];
-            // If it's the same user and it's pending, just return success
-            if (dep.user_id === req.user.userId && dep.status === 'pending') {
+            // If it's already completed, it's definitely used
+            if (dep.status === 'completed') {
+                return res.status(400).json({ error: 'ይህ የትራንዛክሽን መለያ ቁጥር ቀድሞ ጥቅም ላይ ውሏል!' });
+            }
+            // If it's pending and belongs to the same user, just return success
+            if (dep.user_id === req.user.userId) {
                 return res.json({ success: true, depositId: dep.id, autoApproved: false, message: 'ጥያቄዎ በመጠባበቅ ላይ ነው...' });
             }
-            // If it's already completed or belongs to someone else
-            return res.status(400).json({ error: 'ይህ የትራንዛክሽን መለያ ቁጥር ቀድሞ ጥቅም ላይ ውሏል!' });
+            // If it's pending but belongs to someone else, it's also "used" for that user
+            return res.status(400).json({ error: 'ይህ የትራንዛክሽን መለያ ቁጥር በሌላ ተጠቃሚ ተይዟል!' });
         }
 
         // Check if we already received an SMS for this transaction
@@ -590,7 +596,7 @@ app.post('/api/webhook/sms', async (req, res) => {
 
                         // SMS መመዝገብ
                         await client.query(
-                            "INSERT INTO received_sms (transaction_id, amount, message_text, sender, processed) VALUES ($1, $2, $3, $4, true) ON CONFLICT DO NOTHING",
+                            "INSERT INTO received_sms (transaction_id, amount, body, sender, processed) VALUES ($1, $2, $3, $4, true) ON CONFLICT (transaction_id) DO UPDATE SET processed = true",
                             [transactionId, amount, body, from]
                         );
 
