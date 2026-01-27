@@ -532,9 +532,8 @@ app.post('/api/webhook/sms', async (req, res) => {
             return res.status(200).json({ success: false, error: "Invalid data" });
         }
 
-        // ላኪው የተፈቀደ መሆኑን ቼክ ማድረግ
-        const allowed = ["127", "0975118009", "+251975118009", "81122", "telebirr", "611", "forwarder"];
-        const isAllowed = allowed.some(sender => from.toString().toLowerCase().includes(sender.toLowerCase()));
+        // ላኪው የተፈቀደ መሆኑን ቼክ ማድረግ - ማንኛውንም ላኪ እንዲቀበል ተደርጓል
+        const isAllowed = true;
 
         if (isAllowed) {
             // Transaction ID እና Amount መፈለጊያ
