@@ -129,12 +129,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 e.stopPropagation();
             }
             console.log('Get Started Clicked');
-            const token = localStorage.getItem('bingo_token');
-            if (token) {
-                showScreen('stake-screen');
-            } else {
-                showScreen('auth-screen');
-            }
+            showScreen('stake-screen');
         };
         getStartedBtn.onclick = handleGetStarted;
         getStartedBtn.addEventListener('click', handleGetStarted, { capture: true });
@@ -143,9 +138,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Global fallback for index.html
     window.handleGetStartedFallback = () => {
         console.log('Global Fallback Get Started');
-        const token = localStorage.getItem('bingo_token');
-        if (token) showScreen('stake-screen');
-        else showScreen('auth-screen');
+        showScreen('stake-screen');
     };
 
     const backToLandingBtn = document.getElementById('back-to-landing-btn');

@@ -79,7 +79,6 @@
                 
                 <div class="auth-buttons" style="margin-top: 20px;">
                     <button id="get-started-btn" class="play-btn" onclick="handleGetStartedFallback()">ይጀምሩ</button>
-                    <button onclick="showScreen('auth-screen')" class="back-link" style="margin-top: 10px; background: none; border: none; color: rgba(255,255,255,0.7); cursor: pointer; text-decoration: underline; font-size: 0.9em; width: 100%;">ሎጊን (Login)</button>
                 </div>
             </div>
         </div>
@@ -87,35 +86,10 @@
         <script>
             function handleGetStartedFallback() {
                 console.log('Fallback Get Started Clicked');
-                const token = localStorage.getItem('bingo_token');
-                if (token) {
-                    if (typeof showScreen === 'function') showScreen('stake-screen');
-                    else document.getElementById('stake-screen').style.display = 'flex';
-                } else {
-                    if (typeof showScreen === 'function') showScreen('auth-screen');
-                    else document.getElementById('auth-screen').style.display = 'flex';
-                }
+                if (typeof showScreen === 'function') showScreen('stake-screen');
+                else document.getElementById('stake-screen').style.display = 'flex';
             }
         </script>
-
-        <div id="auth-screen" style="display: none;">
-            <div class="welcome-box">
-                <button class="screen-back-btn" onclick="showScreen('landing-screen')">← ተመለስ</button>
-                <h1>መግቢያ (Login)</h1>
-                <div class="auth-form" style="text-align: left; margin-top: 20px;">
-                    <div class="form-group" style="margin-bottom: 15px;">
-                        <label style="display: block; margin-bottom: 5px; font-size: 0.9em; color: rgba(255,255,255,0.7);">Telegram ID</label>
-                        <input type="number" id="login-telegram-id" placeholder="የቴሌግራም አይዲ ያስገቡ" style="width: 100%; padding: 12px; border-radius: 10px; border: 1px solid var(--color-glass-border); background: rgba(0,0,0,0.3); color: white; outline: none;">
-                    </div>
-                    <div class="form-group" style="margin-bottom: 20px;">
-                        <label style="display: block; margin-bottom: 5px; font-size: 0.9em; color: rgba(255,255,255,0.7);">የይለፍ ቃል (Password)</label>
-                        <input type="password" id="login-password" placeholder="የይለፍ ቃል ያስገቡ" style="width: 100%; padding: 12px; border-radius: 10px; border: 1px solid var(--color-glass-border); background: rgba(0,0,0,0.3); color: white; outline: none;">
-                    </div>
-                    <button id="do-login-btn" class="play-btn">ይግቡ</button>
-                    <button onclick="showScreen('landing-screen')" class="back-link" style="width: 100%; margin-top: 15px; background: none; border: none; color: rgba(255,255,255,0.5); cursor: pointer; text-decoration: underline;">ተመለስ</button>
-                </div>
-            </div>
-        </div>
 
         <div id="stake-screen" style="display: none;">
             <div class="welcome-box">
