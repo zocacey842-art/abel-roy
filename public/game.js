@@ -133,7 +133,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (token) {
                 showScreen('stake-screen');
             } else {
-                showScreen(document.getElementById('register-screen') ? 'register-screen' : 'register-screen');
+                showScreen('auth-screen');
             }
         };
         getStartedBtn.onclick = handleGetStarted;
@@ -145,7 +145,7 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log('Global Fallback Get Started');
         const token = localStorage.getItem('bingo_token');
         if (token) showScreen('stake-screen');
-        else showScreen('register-screen');
+        else showScreen('auth-screen');
     };
 
     const backToLandingBtn = document.getElementById('back-to-landing-btn');
